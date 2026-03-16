@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Link,  useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
-
 
 interface Article {
   _id: string;
@@ -16,10 +14,8 @@ interface Article {
 export const Home: React.FC = () => {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
-  const { isAuthenticated, isAdmin } = useAuth();
 
   useEffect(() => {
-    // Récupère uniquement les articles publiés
     api.get('/articles?status=published')
       .then(res => {
         setArticles(res.data.data || []);
@@ -47,21 +43,12 @@ export const Home: React.FC = () => {
           </h1>
           
           <div className="flex items-center gap-4">
-            {isAuthenticated && isAdmin ? (
-              <Link
-                to="/admin"
-                className="px-4 py-2 bg-primary-500 text-white rounded-xl hover:bg-primary-600 transition"
-              >
-                Dashboard Admin
-              </Link>
-            ) : (
-              <Link
-                to="/login"
-                className="px-4 py-2 bg-primary-500 text-white rounded-xl hover:bg-primary-600 transition"
-              >
-                Espace Admin
-              </Link>
-            )}
+            <Link
+              to="/login"
+              className="px-4 py-2 bg-primary-500 text-white rounded-xl hover:bg-primary-600 transition"
+            >
+              Espace Admin
+            </Link>
           </div>
         </div>
       </header>

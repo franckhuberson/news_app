@@ -69,13 +69,11 @@ api.interceptors.request.use(
     const token = authService.getToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      console.log('🔐 Token ajouté à la requête');
+      console.log('🔐 Token envoyé à:', config.url);
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 // Intercepteur pour gérer les erreurs et les 401

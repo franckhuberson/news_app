@@ -6,8 +6,6 @@ import { articleService, statsService, scraperService } from '../services/api';
 import type { Article } from '../types';
 
 export const Dashboard: React.FC = () => {
-  console.log('🔥🔥🔥 DASHBOARD EST APPELÉ 🔥🔥🔥');
-
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [scraping, setScraping] = useState(false);
@@ -27,25 +25,10 @@ export const Dashboard: React.FC = () => {
   const fetchData = async () => {
   setLoading(true);
   try {
-    const [articlesRes, statsRes] = await Promise.all([
-      articleService.getArticles('pending'),
-      statsService.getStats()
-    ]);
-    console.log('🔍 DEBUG COMPLET:');
-    console.log('articlesRes =', JSON.stringify(articlesRes, null, 2));
-    console.log('articlesRes.data =', articlesRes.data);
-    console.log('Type de articlesRes.data:', typeof articlesRes.data);
-    console.log('Est-ce un tableau?', Array.isArray(articlesRes.data));
-    console.log('Longueur:', articlesRes.data?.length);
-    console.log('📦 articlesRes:', articlesRes);
-    console.log('📦 statsRes:', statsRes);
+    // Charge UNIQUEMENT les statistiques
+    console.log('📊 Chargement des stats...');
+    const statsRes = await statsService.getStats();
     
-    // Met à jour les articles
-    if (articlesRes && articlesRes.data) {
-      setArticles(articlesRes.data);
-    }
-    
-    // Met à jour les stats avec la structure correcte
     if (statsRes && statsRes.data) {
       setStats({
         total: statsRes.data.total || 0,
@@ -54,10 +37,14 @@ export const Dashboard: React.FC = () => {
         rejected: statsRes.data.byStatus?.rejected || 0,
         modified: statsRes.data.byStatus?.modified || 0,
       });
+      console.log('✅ Stats chargées');
     }
     
+    // NE PAS charger les articles ici
+    // setArticles([]); // Les articles restent vides
+    
   } catch (error) {
-    console.error('❌ Erreur chargement:', error);
+    console.error('❌ Erreur chargement stats:', error);
   } finally {
     setLoading(false);
   }
@@ -77,6 +64,7 @@ export const Dashboard: React.FC = () => {
     }
   };
 
+  
 
   return (
     <DashboardLayout>
