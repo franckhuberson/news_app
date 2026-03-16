@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Article = require('../models/Article');
+const { protect, admin } = require('../middleware/auth');
 
 // ===========================================
 // MIDDLEWARE DE VALIDATION D'ID
@@ -186,7 +187,7 @@ router.get('/:id', validateId, async (req, res) => {
  * PUT /api/articles/:id
  * Modifie complètement un article
  */
-router.put('/:id', validateId, async (req, res) => {
+router.put('/:id', protect, admin, validateId, async (req, res) => {
     try {
         const { title, summary, originalContent, imageUrl, modifiedBy } = req.body;
 
@@ -260,7 +261,7 @@ router.put('/:id', validateId, async (req, res) => {
  * PATCH /api/articles/:id/status
  * Change uniquement le statut d'un article
  */
-router.patch('/:id/status', validateId, async (req, res) => {
+router.patch('/:id/status', protect, admin, validateId, async (req, res) => {
     try {
         const { status } = req.body;
 
@@ -316,7 +317,7 @@ router.patch('/:id/status', validateId, async (req, res) => {
  * DELETE /api/articles/:id
  * Supprime un article (rejet définitif)
  */
-router.delete('/:id', validateId, async (req, res) => {
+router.delete('/:id', protect, admin, validateId, async (req, res) => {
     try {
         const article = await Article.findByIdAndDelete(req.params.id);
 

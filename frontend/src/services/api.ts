@@ -1,4 +1,5 @@
 import axios from 'axios';
+import authService from './auth'; 
 
 // Définis les types localement pour éviter les erreurs d'import
 interface Article {
@@ -62,10 +63,34 @@ export const api = axios.create({
   timeout: 10000,
 });
 
-// Intercepteur pour gérer les erreurs
+// 🔐 Intercepteur pour ajouter le token à chaque requête
+api.interceptors.request.use(
+  (config) => {
+    const token = authService.getToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+      console.log('🔐 Token ajouté à la requête');
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Intercepteur pour gérer les erreurs et les 401
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // 🔐 Gestion spécifique des erreurs 401 (non autorisé)
+    if (error.response?.status === 401) {
+      console.error('🔐 Session expirée - Redirection vers login');
+      authService.logout();
+      window.location.href = '/login';
+      return Promise.reject(error);
+    }
+    
+    // Gestion des autres erreurs
     if (error.code === 'ECONNABORTED') {
       console.error('❌ Timeout - Le serveur ne répond pas');
     } else if (!error.response) {

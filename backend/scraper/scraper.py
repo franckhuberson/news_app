@@ -79,6 +79,7 @@ def scrape_article(url):
         article = Article(url, language="fr")
         article.download()
         article.parse()
+        article.nlp()
         # 👇 IMPORTANT: article.nlp() est commenté pour éviter les erreurs NLTK
         # article.nlp()
 
@@ -90,7 +91,7 @@ def scrape_article(url):
         return {
             "title": article.title[:500] if article.title else "Sans titre",
             "originalContent": article.text,
-            "summary": "",  # Résumé vide pour l'instant (évite NLTK)
+            "summary": article.summary,
             "imageUrl": article.top_image if article.top_image else "",
             "source": url.split('/')[2] if url.split('/')[2] else "inconnu",
             "sourceUrl": url,

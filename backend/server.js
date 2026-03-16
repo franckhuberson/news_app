@@ -49,6 +49,7 @@ mongoose.connect(MONGODB_URI)
 // ROUTES
 // ===========================================
 const articleRoutes = require('./routes/articles');
+const authRoutes = require('./routes/auth');  
 
 // Route de test
 app.get('/api/test', (req, res) => {
@@ -78,23 +79,31 @@ app.get('/api/db-status', (req, res) => {
 
 // Routes API principales
 app.use('/api/articles', articleRoutes);
+app.use('/api/auth', authRoutes);  // ← Doit être présent
 
 // ===========================================
-// ROUTE POUR LANCER LE SCRAPING (VERSION SIMPLIFIÉE)
+// ROUTE POUR LANCER LE SCRAPING (VERSION FINALE)
 // ===========================================
 app.post('/api/scrape', (req, res) => {
     console.log('\n' + '='.repeat(50));
     console.log('🚀 Lancement du scraping...');
     console.log('='.repeat(50));
     
-    // Chemins
-    const scraperDir = path.join(__dirname, 'scraper');
+    // Chemins avec guillemets pour gérer les espaces
+    const scraperDir = '"C:\\Users\\Franck Huberson\\Desktop\\news_app\\backend\\scraper"';
+    const pythonExe = '"C:\\Users\\Franck Huberson\\Desktop\\news_app\\backend\\scraper\\venv\\Scripts\\python.exe"';
+    const pythonScript = '"C:\\Users\\Franck Huberson\\Desktop\\news_app\\backend\\scraper\\scraper.py"';
+    
+    console.log('📁 Dossier scraper:', scraperDir);
+    console.log('🐍 Python exe:', pythonExe);
+    console.log('📜 Script:', pythonScript);
+    
+    // Construire la commande avec les chemins protégés
     const command = 'cmd.exe';
-    const args = ['/c', 'cd scraper && .\\venv\\Scripts\\python scraper.py'];
+    const args = ['/c', `cd ${scraperDir} && ${pythonExe} ${pythonScript}`];
     
-    console.log('📁 Commande:', command, args.join(' '));
+    console.log('▶️ Commande complète:', command, args.join(' '));
     
-    // Lancer le processus
     const pythonProcess = spawn(command, args, {
         cwd: __dirname,
         shell: true,
@@ -147,6 +156,12 @@ app.post('/api/scrape', (req, res) => {
     });
 });
 
+
+// ===========================================
+// ROUTES D'AUTHENTIFICATION
+// ===========================================
+app.use('/api/auth', authRoutes);
+
 // ===========================================
 // GESTION DES ERREURS 404
 // ===========================================
@@ -184,4 +199,7 @@ app.listen(PORT, () => {
     console.log(`   - PATCH /api/articles/:id/status`);
     console.log(`   - DELETE /api/articles/:id`);
     console.log(`   - POST /api/scrape`);
+    console.log(`   - POST /api/auth/register`);
+    console.log(`   - POST /api/auth/login`);
+    console.log(`   - GET  /api/auth/profile`);
 });
