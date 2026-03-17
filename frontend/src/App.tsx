@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { RefreshCw, LogOut, Edit, CheckCircle, XCircle } from 'lucide-react';
 import axios from 'axios';
 import { Home } from './pages/Home';  
 import { Login } from './pages/Login';  
-
+import './App.css';
 // Types
 interface Article {
   _id: string;

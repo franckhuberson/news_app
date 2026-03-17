@@ -4,9 +4,10 @@ import { ArticleCard } from '../components/articles/ArticleCard';
 import { RefreshCw } from 'lucide-react';
 import { articleService, statsService, scraperService } from '../services/api';
 import type { Article } from '../types';
+import logo from '../assets/logo.png';
 
 export const Dashboard: React.FC = () => {
-  const [articles, setArticles] = useState<Article[]>([]);
+  const [articles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [scraping, setScraping] = useState(false);
   const [stats, setStats] = useState({
@@ -71,9 +72,14 @@ export const Dashboard: React.FC = () => {
       {/* Header avec stats */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary-600 to-purple-600 bg-clip-text text-transparent">
-            NewsPulse Dashboard
-          </h1>
+          <div className="flex items-center gap-3">
+            <img 
+              src={logo} 
+              alt="NewsPulse" 
+              className="h-10 w-auto"
+            />
+            <span className="text-2xl font-semibold text-gray-700">Dashboard</span>
+          </div>
           
           <button
             onClick={handleScrape}
