@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, Bell, Search, User } from 'lucide-react';
+import { Menu, Search, User } from 'lucide-react';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -29,10 +29,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
         </div>
 
         <div className="flex items-center gap-3">
-          <button className="p-2 hover:bg-white/20 rounded-xl transition-colors relative">
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-primary-500 rounded-full animate-pulse" />
-          </button>
+
           
           <button className="flex items-center gap-2 p-2 hover:bg-white/20 rounded-xl transition-colors">
             <div className="w-8 h-8 rounded-full bg-gradient-to-r from-primary-500 to-purple-500 flex items-center justify-center">

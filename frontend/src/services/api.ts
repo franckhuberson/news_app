@@ -60,7 +60,7 @@ export const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000,
+  timeout: 30000,
 });
 
 // 🔐 Intercepteur pour ajouter le token à chaque requête
@@ -99,6 +99,7 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
 
 // Service pour les articles
 export const articleService = {
@@ -146,4 +147,18 @@ export const scraperService = {
     const response = await api.post('/scrape');
     return response.data;
   }
+};
+
+export const uploadService = {
+  uploadImage: async (file: File) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    
+    const response = await api.post('/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
 };

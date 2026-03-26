@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import logo from '../../assets/logo.png';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -24,7 +25,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             font-bold text-2xl bg-gradient-to-r from-primary-600 to-primary-400 bg-clip-text text-transparent
             transition-all duration-300 ${sidebarOpen ? 'opacity-100' : 'opacity-0 scale-0'}
           `}>
-            NewsPulse
+          <div className="flex justify-between items-center">
+                <img 
+                  src={logo} 
+                  alt="NewsPulse" 
+                  className="h-10 md:h-12 w-auto rounded-lg overflow-hidden relative z-10" 
+                />
+            </div>
           </h1>
         </div>
         <Sidebar collapsed={!sidebarOpen} />
