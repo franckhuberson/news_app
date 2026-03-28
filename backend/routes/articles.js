@@ -30,7 +30,7 @@ router.get('/', async (req, res) => {
         const { 
             status, 
             source, 
-            limit = 20, 
+            limit = 50, 
             page = 1,
             sortBy = 'scrapedAt',
             order = 'desc'
@@ -40,6 +40,7 @@ router.get('/', async (req, res) => {
         const filter = {};
         if (status) filter.status = status;
         if (source) filter.source = source;
+        if (req.query.categorie) filter.categorie = req.query.categorie; // ← AJOUT
 
         // Pagination
         const skip = (parseInt(page) - 1) * parseInt(limit);

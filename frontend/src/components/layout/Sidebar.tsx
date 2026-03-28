@@ -7,9 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   TrendingUp,
-  Tag,
   ChevronDown,
-  /*CheckCircle,*/
   XCircle,
   Clock
 } from 'lucide-react';
@@ -23,24 +21,43 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [categoriesOpen, setCategoriesOpen] = useState(false);
+  
+  const [articlesPublishedOpen, setArticlesPublishedOpen] = useState(false);
+  const [articlesRejectedOpen, setArticlesRejectedOpen] = useState(false);
+  const [articlesPendingOpen, setArticlesPendingOpen] = useState(false);
 
-  const menuItems = [
-    { icon: LayoutDashboard, label: 'TABLEAU DE BORD', path: '/admin', shortLabel: 'BORD' },
-    { icon: Newspaper, label: 'ARTICLES PUBLIÉS', path: '/admin/articles/published', shortLabel: 'PUB' },
-    { icon: XCircle, label: 'ARTICLES REJETÉS', path: '/admin/articles/rejected', shortLabel: 'REJ' },
-    { icon: Clock, label: 'EN ATTENTE', path: '/admin/articles/pending', shortLabel: 'ATT' },
-    { icon: TrendingUp, label: 'STATISTIQUES', path: '/admin/stats', shortLabel: 'STATS' },
-  ];
+  // Catégories pour ARTICLES PUBLIÉS
+const publishedCategories = [
+  { label: 'TOUS', path: '/admin/articles/published/all', param: 'all' },
+  { label: 'POLITIQUE', path: '/admin/articles/published/politique', param: 'politique' },
+  { label: 'SANTÉ', path: '/admin/articles/published/sante', param: 'sante' },
+  { label: 'TECH', path: '/admin/articles/published/tech', param: 'tech' },
+  { label: 'ÉCONOMIE', path: '/admin/articles/published/economie', param: 'economie' },
+  { label: 'CULTURE', path: '/admin/articles/published/culture', param: 'culture' },
+  { label: 'SPORTS', path: '/admin/articles/published/sports', param: 'sports' },
+];
 
-  const categories = [
-    { label: 'POLITIQUE', path: '/admin/categories/politique' },
-    { label: 'SANTÉ', path: '/admin/categories/sante' },
-    { label: 'TECH', path: '/admin/categories/tech' },
-    { label: 'ÉCONOMIE', path: '/admin/categories/economie' },
-    { label: 'CULTURE', path: '/admin/categories/culture' },
-    { label: 'SPORTS', path: '/admin/categories/sports' },
-  ];
+// Catégories pour ARTICLES EN ATTENTE
+const pendingCategories = [
+  { label: 'TOUS', path: '/admin/articles/pending/all', param: 'all' },
+  { label: 'POLITIQUE', path: '/admin/articles/pending/politique', param: 'politique' },
+  { label: 'SANTÉ', path: '/admin/articles/pending/sante', param: 'sante' },
+  { label: 'TECH', path: '/admin/articles/pending/tech', param: 'tech' },
+  { label: 'ÉCONOMIE', path: '/admin/articles/pending/economie', param: 'economie' },
+  { label: 'CULTURE', path: '/admin/articles/pending/culture', param: 'culture' },
+  { label: 'SPORTS', path: '/admin/articles/pending/sports', param: 'sports' },
+];
+
+// Catégories pour ARTICLES REJETÉS
+const rejectedCategories = [
+  { label: 'TOUS', path: '/admin/articles/rejected/all', param: 'all' },
+  { label: 'POLITIQUE', path: '/admin/articles/rejected/politique', param: 'politique' },
+  { label: 'SANTÉ', path: '/admin/articles/rejected/sante', param: 'sante' },
+  { label: 'TECH', path: '/admin/articles/rejected/tech', param: 'tech' },
+  { label: 'ÉCONOMIE', path: '/admin/articles/rejected/economie', param: 'economie' },
+  { label: 'CULTURE', path: '/admin/articles/rejected/culture', param: 'culture' },
+  { label: 'SPORTS', path: '/admin/articles/rejected/sports', param: 'sports' },
+];
 
   const handleNavigation = (path: string) => {
     navigate(path);
@@ -54,132 +71,187 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
 
   const isActive = (path: string) => location.pathname === path;
 
+  // Composant réutilisable pour un menu déroulant
+  const DropdownMenuItem = ({ 
+    icon: Icon, 
+    label, 
+    isOpen, 
+    setIsOpen, 
+    items,
+    shortLabel 
+  }: { 
+    icon: React.ElementType, 
+    label: string, 
+    isOpen: boolean, 
+    setIsOpen: (value: boolean) => void, 
+    items: { label: string; path: string; param: string }[],
+    shortLabel: string
+  }) => (
+    <div>
+      <div
+        onClick={() => !collapsed && setIsOpen(!isOpen)}
+        className={`
+          group relative flex items-center gap-4 py-4 mx-4 my-1 cursor-pointer
+          transition-all duration-200 border-l-4 border-transparent
+          text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/30 hover:border-gray-300
+          ${collapsed ? 'justify-center px-0' : 'px-6'}
+        `}
+      >
+        <Icon className="w-5 h-5" />
+        {!collapsed && (
+          <>
+            <span className="text-[11px] font-black uppercase tracking-wider flex-1">{label}</span>
+            <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+          </>
+        )}
+        {collapsed && (
+          <div className="absolute left-full ml-2 px-2 py-1 bg-black text-white text-[9px] font-black uppercase tracking-wider rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+            {shortLabel}
+          </div>
+        )}
+      </div>
+
+      {!collapsed && isOpen && (
+        <div className="ml-12 space-y-1 mb-2">
+          {items.map((item) => {
+            const active = location.pathname === item.path;
+            return (
+              <div
+                key={item.label}
+                onClick={() => handleNavigation(item.path)}
+                className={`
+                  flex items-center gap-3 py-2 px-4 cursor-pointer rounded-lg
+                  transition-all duration-200
+                  ${active 
+                    ? 'text-[#FF4500] bg-gray-50 dark:bg-gray-800/50 font-bold' 
+                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/30'
+                  }
+                `}
+              >
+                <span className="text-[10px] font-black uppercase tracking-wider">{item.label}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="h-full flex flex-col bg-white dark:bg-gray-900 relative">
-      {/* Espace en haut */}
       <div className="h-6" />
 
-      {/* Navigation */}
       <nav className="flex-1 py-4 overflow-y-auto">
-        {menuItems.map((item) => {
-          const Icon = item.icon;
-          const active = isActive(item.path);
-          
-          return (
-            <div
-              key={item.path}
-              onClick={() => handleNavigation(item.path)}
-              className={`
-                group relative flex items-center gap-4 py-4 mx-4 my-1 cursor-pointer
-                transition-all duration-200 border-l-4
-                ${active 
-                  ? 'border-[#FF4500] bg-gray-50 dark:bg-gray-800/50 text-[#FF4500]' 
-                  : 'border-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/30 hover:border-gray-300'
-                }
-                ${collapsed ? 'justify-center px-0' : 'px-6'}
-              `}
-            >
-              <Icon className={`w-5 h-5 ${active ? 'text-[#FF4500]' : ''}`} />
-              {!collapsed && (
-                <span className={`text-[11px] font-black uppercase tracking-wider ${active ? 'text-[#FF4500]' : ''}`}>
-                  {item.label}
-                </span>
-              )}
-              {collapsed && (
-                <div className="absolute left-full ml-2 px-2 py-1 bg-black text-white text-[9px] font-black uppercase tracking-wider rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
-                  {item.shortLabel}
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        {/* CATÉGORIES avec menu déroulant */}
-        <div>
-          <div
-            onClick={() => !collapsed && setCategoriesOpen(!categoriesOpen)}
-            className={`
-              group relative flex items-center gap-4 py-4 mx-4 my-1 cursor-pointer
-              transition-all duration-200 border-l-4 border-transparent
-              text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/30 hover:border-gray-300
-              ${collapsed ? 'justify-center px-0' : 'px-6'}
-            `}
-          >
-            <Tag className="w-5 h-5" />
-            {!collapsed && (
-              <>
-                <span className="text-[11px] font-black uppercase tracking-wider flex-1">CATÉGORIES</span>
-                <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${categoriesOpen ? 'rotate-180' : ''}`} />
-              </>
-            )}
-            {collapsed && (
-              <div className="absolute left-full ml-2 px-2 py-1 bg-black text-white text-[9px] font-black uppercase tracking-wider rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
-                CAT
-              </div>
-            )}
-          </div>
-
-          {/* Sous-menu des catégories */}
-          {!collapsed && categoriesOpen && (
-            <div className="ml-12 space-y-1 mb-2">
-              {categories.map((cat) => {
-                const active = isActive(cat.path);
-                return (
-                  <div
-                    key={cat.path}
-                    onClick={() => handleNavigation(cat.path)}
-                    className={`
-                      flex items-center gap-3 py-2 px-4 cursor-pointer rounded-lg
-                      transition-all duration-200
-                      ${active 
-                        ? 'text-[#FF4500] bg-gray-50 dark:bg-gray-800/50 font-bold' 
-                        : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/30'
-                      }
-                    `}
-                  >
-                    <span className="text-[10px] font-black uppercase tracking-wider">{cat.label}</span>
-                  </div>
-                );
-              })}
+        
+        {/* TABLEAU DE BORD */}
+        <div
+          onClick={() => handleNavigation('/admin')}
+          className={`
+            group relative flex items-center gap-4 py-4 mx-4 my-1 cursor-pointer
+            transition-all duration-200 border-l-4
+            ${isActive('/admin') 
+              ? 'border-[#FF4500] bg-gray-50 dark:bg-gray-800/50 text-[#FF4500]' 
+              : 'border-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/30 hover:border-gray-300'
+            }
+            ${collapsed ? 'justify-center px-0' : 'px-6'}
+          `}
+        >
+          <LayoutDashboard className={`w-5 h-5 ${isActive('/admin') ? 'text-[#FF4500]' : ''}`} />
+          {!collapsed && (
+            <span className={`text-[11px] font-black uppercase tracking-wider ${isActive('/admin') ? 'text-[#FF4500]' : ''}`}>
+              TABLEAU DE BORD
+            </span>
+          )}
+          {collapsed && (
+            <div className="absolute left-full ml-2 px-2 py-1 bg-black text-white text-[9px] font-black uppercase tracking-wider rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+              BORD
             </div>
           )}
         </div>
 
-        <div className="h-4" />
-        
-        {/* PARAMÈTRES */}
-        {(() => {
-          const SettingsIcon = Settings;
-          const active = isActive('/admin/settings');
-          return (
-            <div
-              onClick={() => handleNavigation('/admin/settings')}
-              className={`
-                group relative flex items-center gap-4 py-4 mx-4 my-1 cursor-pointer
-                transition-all duration-200 border-l-4
-                ${active 
-                  ? 'border-[#FF4500] bg-gray-50 dark:bg-gray-800/50 text-[#FF4500]' 
-                  : 'border-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/30 hover:border-gray-300'
-                }
-                ${collapsed ? 'justify-center px-0' : 'px-6'}
-              `}
-            >
-              <SettingsIcon className={`w-5 h-5 ${active ? 'text-[#FF4500]' : ''}`} />
-              {!collapsed && (
-                <span className={`text-[11px] font-black uppercase tracking-wider ${active ? 'text-[#FF4500]' : ''}`}>
-                  PARAMÈTRES
-                </span>
-              )}
-              {collapsed && (
-                <div className="absolute left-full ml-2 px-2 py-1 bg-black text-white text-[9px] font-black uppercase tracking-wider rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
-                  PARAMS
-                </div>
-              )}
-            </div>
-          );
-        })()}
+        {/* ARTICLES PUBLIÉS */}
+        <DropdownMenuItem
+          icon={Newspaper}
+          label="ARTICLES PUBLIÉS"
+          shortLabel="PUB"
+          isOpen={articlesPublishedOpen}
+          setIsOpen={setArticlesPublishedOpen}
+          items={publishedCategories}
+        />
 
-        {/* DÉCONNEXION - placée APRÈS les paramètres */}
+        {/* ARTICLES REJETÉS */}
+        <DropdownMenuItem
+          icon={XCircle}
+          label="ARTICLES REJETÉS"
+          shortLabel="REJ"
+          isOpen={articlesRejectedOpen}
+          setIsOpen={setArticlesRejectedOpen}
+          items={rejectedCategories}
+        />
+
+        {/* ARTICLES EN ATTENTE */}
+        <DropdownMenuItem
+          icon={Clock}
+          label="ARTICLES EN ATTENTE"
+          shortLabel="ATT"
+          isOpen={articlesPendingOpen}
+          setIsOpen={setArticlesPendingOpen}
+          items={pendingCategories}
+        />
+
+        {/* STATISTIQUES */}
+        <div
+          onClick={() => handleNavigation('/admin/stats')}
+          className={`
+            group relative flex items-center gap-4 py-4 mx-4 my-1 cursor-pointer
+            transition-all duration-200 border-l-4
+            ${isActive('/admin/stats') 
+              ? 'border-[#FF4500] bg-gray-50 dark:bg-gray-800/50 text-[#FF4500]' 
+              : 'border-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/30 hover:border-gray-300'
+            }
+            ${collapsed ? 'justify-center px-0' : 'px-6'}
+          `}
+        >
+          <TrendingUp className={`w-5 h-5 ${isActive('/admin/stats') ? 'text-[#FF4500]' : ''}`} />
+          {!collapsed && (
+            <span className={`text-[11px] font-black uppercase tracking-wider ${isActive('/admin/stats') ? 'text-[#FF4500]' : ''}`}>
+              STATISTIQUES
+            </span>
+          )}
+          {collapsed && (
+            <div className="absolute left-full ml-2 px-2 py-1 bg-black text-white text-[9px] font-black uppercase tracking-wider rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+              STATS
+            </div>
+          )}
+        </div>
+
+        {/* PARAMÈTRES */}
+        <div
+          onClick={() => handleNavigation('/admin/settings')}
+          className={`
+            group relative flex items-center gap-4 py-4 mx-4 my-1 cursor-pointer
+            transition-all duration-200 border-l-4
+            ${isActive('/admin/settings') 
+              ? 'border-[#FF4500] bg-gray-50 dark:bg-gray-800/50 text-[#FF4500]' 
+              : 'border-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/30 hover:border-gray-300'
+            }
+            ${collapsed ? 'justify-center px-0' : 'px-6'}
+          `}
+        >
+          <Settings className={`w-5 h-5 ${isActive('/admin/settings') ? 'text-[#FF4500]' : ''}`} />
+          {!collapsed && (
+            <span className={`text-[11px] font-black uppercase tracking-wider ${isActive('/admin/settings') ? 'text-[#FF4500]' : ''}`}>
+              PARAMÈTRES
+            </span>
+          )}
+          {collapsed && (
+            <div className="absolute left-full ml-2 px-2 py-1 bg-black text-white text-[9px] font-black uppercase tracking-wider rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+              PARAMS
+            </div>
+          )}
+        </div>
+
+        {/* DÉCONNEXION */}
         <div className="mt-6">
           <div
             onClick={handleLogout}
@@ -203,7 +275,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
         </div>
       </nav>
       
-      {/* Bouton toggle (optionnel) */}
       {onToggle && (
         <button
           onClick={onToggle}

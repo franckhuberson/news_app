@@ -52,6 +52,7 @@ mongoose.connect(MONGODB_URI)
 // ===========================================
 const articleRoutes = require('./routes/articles');
 const authRoutes = require('./routes/auth');  
+const subscriberRoutes = require('./routes/subscribers');
 
 // Route de test
 app.get('/api/test', (req, res) => {
@@ -81,7 +82,8 @@ app.get('/api/db-status', (req, res) => {
 
 // Routes API principales
 app.use('/api/articles', articleRoutes);
-app.use('/api/auth', authRoutes);  // ← Doit être présent
+app.use('/api/auth', authRoutes);
+app.use('/api/subscribers', subscriberRoutes);
 
 // ===========================================
 // ROUTE POUR LANCER LE SCRAPING (VERSION FINALE)

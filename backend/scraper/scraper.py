@@ -10,6 +10,30 @@ import time
 import logging
 
 # =====================
+# DÉTECTION DE CATÉGORIE
+# =====================
+
+def detect_category(title, content):
+    """Détecte la catégorie d'un article à partir de son titre et contenu"""
+    text = (title + " " + content).lower()
+    
+    categories = {
+        'Politique': ['politique', 'gouvernement', 'président', 'élection', 'ministre', 'député', 'sénat', 'assemblée', 'république', 'état'],
+        'Économie': ['économie', 'marché', 'investissement', 'cacao', 'prix', 'finance', 'bourse', 'entreprise', 'commercialisation', 'fmi', 'banque'],
+        'Sports': ['sport', 'football', 'match', 'can', 'basketball', 'stade', 'coupe', 'équipe', 'entraînement', 'fif'],
+        'Tech': ['tech', 'technologie', 'ia', 'intelligence artificielle', 'digital', 'robot', 'visa connect', 'internet', 'satellite', 'orange'],
+        'Culture': ['culture', 'art', 'musique', 'cinéma', 'cuisine', 'caricature', 'festival', 'exposition', 'gastronomie', 'ndole'],
+        'Faits Divers': ['accident', 'victime', 'mort', 'blessé', 'incendie', 'effondrement', 'drame', 'urgence', 'sécurité', 'camion', 'percuté']
+    }
+    
+    for category, keywords in categories.items():
+        for keyword in keywords:
+            if keyword in text:
+                return category
+    
+    return 'Politique'  # Catégorie par défaut
+
+# =====================
 # CONFIGURATION
 # =====================
 load_dotenv()
@@ -95,11 +119,12 @@ def scrape_article(url):
             "imageUrl": article.top_image if article.top_image else "",
             "source": url.split('/')[2] if url.split('/')[2] else "inconnu",
             "sourceUrl": url,
+            "categorie": detect_category(article.title, article.text),  # ← AJOUTE CETTE LIGNE
             "status": "pending",
             "scrapedAt": datetime.utcnow(),
             "metadata": {
                 "authors": article.authors if article.authors else [],
-                "keywords": [],  # Pas de mots-clés sans nlp()
+                "keywords": [],
                 "wordCount": len(article.text.split()) if article.text else 0
             }
         }

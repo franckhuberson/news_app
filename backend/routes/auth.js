@@ -11,19 +11,19 @@ const JWT_SECRET = process.env.JWT_SECRET || 'votre_clé_secrète_temporaire_cha
 // ===========================================
 router.post('/register', async (req, res) => {
   try {
-    console.log('1️⃣ Début register');
     const { name, email, password } = req.body;
-    console.log('2️⃣ Données reçues:', { name, email });
+
+    console.log('📝 Inscription:', email);
 
     // Validation
     if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Veuillez fournir tous les champs'
+        message: 'Tous les champs sont requis'
       });
     }
 
-    console.log('3️⃣ Recherche utilisateur existant');
+    // Vérifier si l'utilisateur existe
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({
@@ -32,23 +32,24 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    console.log('4️⃣ Création utilisateur');
-    const user = await User.create({
+    // Créer l'utilisateur
+    const user = new User({
       name,
       email,
       password,
       role: 'user'
     });
 
-    console.log('5️⃣ Utilisateur créé avec ID:', user._id);
+    await user.save();
 
+    console.log('✅ Utilisateur créé:', email);
+
+    // Créer le token
     const token = jwt.sign(
       { id: user._id, email: user.email, role: user.role },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
-
-    console.log('6️⃣ Token généré');
 
     res.status(201).json({
       success: true,
@@ -64,10 +65,8 @@ router.post('/register', async (req, res) => {
       }
     });
 
-    console.log('7️⃣ Réponse envoyée');
-
   } catch (error) {
-    console.error('❌ Erreur register:', error);
+    console.error('❌ Erreur inscription:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur serveur',
@@ -77,68 +76,45 @@ router.post('/register', async (req, res) => {
 });
 
 // ===========================================
-// CONNEXION AVEC LOGS
+// CONNEXION
 // ===========================================
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    
-    // === LOGS DE DÉBOGAGE ===
-    console.log('\n' + '='.repeat(50));
-    console.log('🔐 TENTATIVE DE CONNEXION');
-    console.log('='.repeat(50));
-    console.log('1️⃣ Email reçu:', email);
-    console.log('2️⃣ Mot de passe reçu:', password);
 
-    // Validation
     if (!email || !password) {
-      console.log('❌ 3️⃣ Validation échouée: champs manquants');
       return res.status(400).json({
         success: false,
         message: 'Veuillez fournir email et mot de passe'
       });
     }
-    console.log('✅ 3️⃣ Validation OK');
 
-    // Chercher l'utilisateur
-    console.log('4️⃣ Recherche utilisateur dans MongoDB...');
+    // Chercher l'utilisateur avec le mot de passe
     const user = await User.findOne({ email }).select('+password');
     
     if (!user) {
-      console.log('❌ 5️⃣ Utilisateur non trouvé pour:', email);
       return res.status(401).json({
         success: false,
         message: 'Email ou mot de passe incorrect'
       });
     }
-    console.log('✅ 5️⃣ Utilisateur trouvé:', user.email);
-    console.log('6️⃣ Hash en base:', user.password.substring(0, 30) + '...');
 
-    // Vérifier le mot de passe
-    console.log('7️⃣ Comparaison du mot de passe...');
+    console.log('🔑 Comparaison du mot de passe...');
     const isPasswordValid = await user.comparePassword(password);
-    console.log('8️⃣ Résultat comparaison:', isPasswordValid);
+    console.log('✅ Résultat comparaison:', isPasswordValid);
     
     if (!isPasswordValid) {
-      console.log('❌ 9️⃣ Mot de passe invalide');
       return res.status(401).json({
         success: false,
         message: 'Email ou mot de passe incorrect'
       });
     }
-    console.log('✅ 9️⃣ Mot de passe valide');
 
-    // Créer le token
-    console.log('🔟 Génération du token...');
     const token = jwt.sign(
       { id: user._id, email: user.email, role: user.role },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
-    console.log('✅ 1️⃣1️⃣ Token généré');
-
-    console.log('✅ 1️⃣2️⃣ Connexion réussie !');
-    console.log('='.repeat(50) + '\n');
 
     res.json({
       success: true,
@@ -224,6 +200,68 @@ router.post('/create-admin', protect, admin, async (req, res) => {
       message: 'Erreur serveur',
       error: error.message
     });
+  }
+});
+
+// Récupérer tous les administrateurs
+router.get('/admins', protect, admin, async (req, res) => {
+  try {
+    const admins = await User.find({ role: 'admin' }).select('-password');
+    res.json({ success: true, data: admins });
+  } catch (error) {
+    console.error('Erreur récupération admins:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
+});
+
+// Supprimer un administrateur
+router.delete('/admins/:id', protect, admin, async (req, res) => {
+  try {
+    const adminToDelete = await User.findById(req.params.id);
+    if (!adminToDelete) {
+      return res.status(404).json({ success: false, message: 'Administrateur non trouvé' });
+    }
+    if (adminToDelete.email === 'admin@test.com') {
+      return res.status(400).json({ success: false, message: 'Impossible de supprimer l\'admin principal' });
+    }
+    await User.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'Administrateur supprimé' });
+  } catch (error) {
+    console.error('Erreur suppression admin:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
+});
+
+// ===========================================
+// RÉCUPÉRER TOUS LES ADMINISTRATEURS
+// ===========================================
+router.get('/admins', protect, admin, async (req, res) => {
+  try {
+    const admins = await User.find({ role: 'admin' }).select('-password');
+    res.json({ success: true, data: admins });
+  } catch (error) {
+    console.error('Erreur récupération admins:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
+});
+
+// ===========================================
+// SUPPRIMER UN ADMINISTRATEUR
+// ===========================================
+router.delete('/admins/:id', protect, admin, async (req, res) => {
+  try {
+    const adminToDelete = await User.findById(req.params.id);
+    if (!adminToDelete) {
+      return res.status(404).json({ success: false, message: 'Administrateur non trouvé' });
+    }
+    if (adminToDelete.email === 'admin@test.com') {
+      return res.status(400).json({ success: false, message: 'Impossible de supprimer l\'administrateur principal' });
+    }
+    await User.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'Administrateur supprimé' });
+  } catch (error) {
+    console.error('Erreur suppression admin:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
   }
 });
 

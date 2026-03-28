@@ -45,6 +45,12 @@ const articleSchema = new mongoose.Schema({
         enum: ['brouillon', 'pending', 'modified', 'published', 'rejected'],
         default: 'brouillon'
     },
+
+    // Correspond à "catégorie" dans ta base
+    categorie: {
+        type: String,
+        default: ''
+    },
     
     // Correspond à "créé_à" dans ta base
     scrapedAt: {

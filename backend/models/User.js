@@ -31,18 +31,13 @@ const userSchema = new mongoose.Schema({
   }
 });
 
-// Middleware pre-save simplifié
+// Hash le mot de passe avant la sauvegarde
 userSchema.pre('save', async function(next) {
+  if (!this.isModified('password')) return next();
+  
   try {
-    // Vérifier si le mot de passe est modifié
-    if (!this.isModified('password')) {
-      return next();
-    }
-
-    // Hasher le mot de passe
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
-    
     next();
   } catch (error) {
     next(error);
@@ -51,7 +46,12 @@ userSchema.pre('save', async function(next) {
 
 // Méthode pour comparer les mots de passe
 userSchema.methods.comparePassword = async function(candidatePassword) {
-  return await bcrypt.compare(candidatePassword, this.password);
+  try {
+    return await bcrypt.compare(candidatePassword, this.password);
+  } catch (error) {
+    console.error('Erreur comparaison mot de passe:', error);
+    return false;
+  }
 };
 
 module.exports = mongoose.model('User', userSchema);
