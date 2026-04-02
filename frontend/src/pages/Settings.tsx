@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { 
-  Newspaper, User, Bell, Globe, Save, Mail, Users, Eye, EyeOff, 
-  Trash2, UserPlus, Shield, XCircle, Loader2
+  Newspaper, User, Bell, Globe, Mail, Users, Eye, EyeOff, 
+  Trash2, UserPlus, Shield, Lock, KeyRound, X, Loader2
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -37,31 +37,23 @@ export const Settings: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
 
-  // Validation du formulaire
-  const validateForm = () => {
-    if (!newAdmin.name.trim()) {
-      alert('Veuillez saisir un nom');
-      return false;
-    }
-    if (!newAdmin.email.trim()) {
-      alert('Veuillez saisir un email');
-      return false;
-    }
-    if (!newAdmin.password) {
-      alert('Veuillez saisir un mot de passe');
-      return false;
-    }
-    if (newAdmin.password.length < 6) {
-      alert('Le mot de passe doit contenir au moins 6 caractères');
-      return false;
-    }
-    if (newAdmin.password !== newAdmin.confirmPassword) {
-      setPasswordError('Les mots de passe ne correspondent pas');
-      return false;
-    }
-    setPasswordError('');
-    return true;
-  };
+  // États pour la vérification du code admin
+  const [showAdminCodeModal, setShowAdminCodeModal] = useState(false);
+  const [adminCode, setAdminCode] = useState('');
+  const [pendingAdminData, setPendingAdminData] = useState<{ name: string; email: string; password: string } | null>(null);
+  const [sendingCode, setSendingCode] = useState(false);
+  const [codeMessage, setCodeMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  // États pour le changement de mot de passe
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   // Récupérer la liste des abonnés
   const fetchSubscribers = async () => {
@@ -93,7 +85,7 @@ export const Settings: React.FC = () => {
   const handleDeleteSubscriber = async (id: string) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer cet abonné ?')) return;
     try {
-      await api.delete(`/auth/admins/${id}`);
+      await api.delete(`/subscribers/subscribers/${id}`);
       setSubscribers(subscribers.filter(s => s._id !== id));
       alert('Abonné supprimé avec succès');
     } catch (error) {
@@ -110,7 +102,7 @@ export const Settings: React.FC = () => {
     }
     if (!confirm(`Êtes-vous sûr de vouloir supprimer l'administrateur ${email} ?`)) return;
     try {
-      await api.delete(`/users/admins/${id}`);
+      await api.delete(`/auth/admins/${id}`);
       setAdmins(admins.filter(a => a._id !== id));
       alert('Administrateur supprimé avec succès');
     } catch (error) {
@@ -119,28 +111,86 @@ export const Settings: React.FC = () => {
     }
   };
 
-  // Créer un nouvel administrateur
-  const handleCreateAdmin = async () => {
-    if (!validateForm()) return;
+  // Demander un code par email avant de créer l'admin
+  const handleRequestAdminCode = async () => {
+    console.log('🟢 handleRequestAdminCode appelée');
     
-    setCreatingAdmin(true);
+    if (!newAdmin.name || !newAdmin.email || !newAdmin.password) {
+      alert('Veuillez remplir tous les champs');
+      return;
+    }
+    if (newAdmin.password !== newAdmin.confirmPassword) {
+      setPasswordError('Les mots de passe ne correspondent pas');
+      return;
+    }
+    if (newAdmin.password.length < 6) {
+      alert('Le mot de passe doit contenir au moins 6 caractères');
+      return;
+    }
+
+    setSendingCode(true);
+    setCodeMessage(null);
+
     try {
-      const response = await api.post('/auth/register', {
-        name: newAdmin.name,
-        email: newAdmin.email,
-        password: newAdmin.password,
-        role: 'admin'
+      console.log('📡 Envoi de la requête à /auth/request-admin-code');
+      const response = await api.post('/auth/request-admin-code', {
+        email: newAdmin.email
       });
       
+      console.log('📦 Réponse reçue:', response.data);
+
       if (response.data.success) {
-        alert(`Administrateur ${newAdmin.email} créé avec succès !`);
-        setNewAdmin({ name: '', email: '', password: '', confirmPassword: '' });
-        setPasswordError('');
-        fetchAdmins();
+        setPendingAdminData({
+          name: newAdmin.name,
+          email: newAdmin.email,
+          password: newAdmin.password
+        });
+        setShowAdminCodeModal(true);
+        setCodeMessage({ text: 'Code envoyé à ' + newAdmin.email, type: 'success' });
+      } else {
+        setCodeMessage({ text: response.data.message, type: 'error' });
       }
     } catch (error: any) {
-      console.error('Erreur création admin:', error);
-      alert(error.response?.data?.message || 'Erreur lors de la création');
+      console.error('❌ Erreur:', error);
+      setCodeMessage({ text: error.response?.data?.message || 'Erreur', type: 'error' });
+    } finally {
+      setSendingCode(false);
+    }
+  };
+
+  // Vérifier le code et créer l'admin
+  const handleVerifyAdminCode = async () => {
+    if (!adminCode) {
+      setCodeMessage({ text: 'Veuillez entrer le code reçu', type: 'error' });
+      return;
+    }
+
+    setCreatingAdmin(true);
+    setCodeMessage(null);
+
+    try {
+      const response = await api.post('/auth/verify-admin-code', {
+        email: pendingAdminData?.email,
+        code: adminCode,
+        name: pendingAdminData?.name,
+        password: pendingAdminData?.password
+      });
+
+      if (response.data.success) {
+        setCodeMessage({ text: response.data.message, type: 'success' });
+        setTimeout(() => {
+          setShowAdminCodeModal(false);
+          setAdminCode('');
+          setPendingAdminData(null);
+          setNewAdmin({ name: '', email: '', password: '', confirmPassword: '' });
+          fetchAdmins();
+          setCodeMessage(null);
+        }, 2000);
+      } else {
+        setCodeMessage({ text: response.data.message, type: 'error' });
+      }
+    } catch (error: any) {
+      setCodeMessage({ text: error.response?.data?.message || 'Erreur', type: 'error' });
     } finally {
       setCreatingAdmin(false);
     }
@@ -162,12 +212,50 @@ export const Settings: React.FC = () => {
     }
   };
 
-  const handleSave = () => {
-    setSaving(true);
-    setTimeout(() => {
-      alert('Paramètres sauvegardés !');
-      setSaving(false);
-    }, 1000);
+  // Fonction pour changer le mot de passe
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      setPasswordMessage({ text: 'Veuillez remplir tous les champs', type: 'error' });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setPasswordMessage({ text: 'Le mot de passe doit contenir au moins 6 caractères', type: 'error' });
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setPasswordMessage({ text: 'Les nouveaux mots de passe ne correspondent pas', type: 'error' });
+      return;
+    }
+
+    setChangingPassword(true);
+    setPasswordMessage(null);
+
+    try {
+      const response = await api.post('/auth/change-password', {
+        currentPassword,
+        newPassword
+      });
+
+      if (response.data.success) {
+        setPasswordMessage({ text: 'Mot de passe changé avec succès !', type: 'success' });
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmNewPassword('');
+        setTimeout(() => {
+          setShowPasswordModal(false);
+          setPasswordMessage(null);
+        }, 2000);
+      }
+    } catch (error: any) {
+      setPasswordMessage({
+        text: error.response?.data?.message || 'Erreur lors du changement de mot de passe',
+        type: 'error'
+      });
+    } finally {
+      setChangingPassword(false);
+    }
   };
 
   return (
@@ -261,7 +349,7 @@ export const Settings: React.FC = () => {
             )}
           </div>
 
-          {/* SECTION ADMINISTRATEURS MODERNISÉE */}
+          {/* SECTION ADMINISTRATEURS */}
           <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
             <div 
               onClick={handleShowAdmins}
@@ -285,103 +373,68 @@ export const Settings: React.FC = () => {
 
             {showAdmins && (
               <div className="border-t border-gray-200 dark:border-gray-800 p-6">
-                {/* Formulaire d'ajout modernisé */}
-                <div className="mb-8 p-6 bg-gradient-to-br from-gray-50 to-white dark:from-gray-800/50 dark:to-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-                  <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-[#FF4500]">
-                    <UserPlus size={20} /> Ajouter un administrateur
+                {/* Formulaire d'ajout */}
+                <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                  <h3 className="font-bold mb-3 flex items-center gap-2">
+                    <UserPlus size={18} /> Ajouter un administrateur
                   </h3>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nom complet</label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      placeholder="Nom complet"
+                      value={newAdmin.name}
+                      onChange={(e) => setNewAdmin({ ...newAdmin, name: e.target.value })}
+                      className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800"
+                    />
+                    <input
+                      type="email"
+                      placeholder="Email"
+                      value={newAdmin.email}
+                      onChange={(e) => setNewAdmin({ ...newAdmin, email: e.target.value })}
+                      className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800"
+                    />
+                    <div className="relative">
                       <input
-                        type="text"
-                        placeholder="Jean Dupont"
-                        value={newAdmin.name}
-                        onChange={(e) => setNewAdmin({ ...newAdmin, name: e.target.value })}
-                        className="w-full p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-[#FF4500] focus:border-transparent transition-all"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Mot de passe"
+                        value={newAdmin.password}
+                        onChange={(e) => setNewAdmin({ ...newAdmin, password: e.target.value })}
+                        className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 pr-10"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500"
+                      >
+                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+                    <div className="relative">
                       <input
-                        type="email"
-                        placeholder="admin@exemple.com"
-                        value={newAdmin.email}
-                        onChange={(e) => setNewAdmin({ ...newAdmin, email: e.target.value })}
-                        className="w-full p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-[#FF4500] focus:border-transparent transition-all"
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder="Confirmer"
+                        value={newAdmin.confirmPassword}
+                        onChange={(e) => setNewAdmin({ ...newAdmin, confirmPassword: e.target.value })}
+                        className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 pr-10"
                       />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mot de passe</label>
-                      <div className="relative">
-                        <input
-                          type={showPassword ? "text" : "password"}
-                          placeholder="••••••••"
-                          value={newAdmin.password}
-                          onChange={(e) => setNewAdmin({ ...newAdmin, password: e.target.value })}
-                          className="w-full p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-[#FF4500] focus:border-transparent transition-all pr-10"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                        >
-                          {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                        </button>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Confirmer le mot de passe</label>
-                      <div className="relative">
-                        <input
-                          type={showConfirmPassword ? "text" : "password"}
-                          placeholder="••••••••"
-                          value={newAdmin.confirmPassword}
-                          onChange={(e) => {
-                            setNewAdmin({ ...newAdmin, confirmPassword: e.target.value });
-                            if (newAdmin.password !== e.target.value) {
-                              setPasswordError('Les mots de passe ne correspondent pas');
-                            } else {
-                              setPasswordError('');
-                            }
-                          }}
-                          className="w-full p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-[#FF4500] focus:border-transparent transition-all pr-10"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                        >
-                          {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500"
+                      >
+                        {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
                     </div>
                   </div>
-                  
                   {passwordError && (
-                    <div className="mt-3 flex items-center gap-2 text-red-500 text-sm">
-                      <XCircle size={16} />
-                      <span>{passwordError}</span>
-                    </div>
+                    <p className="text-red-500 text-xs mt-2">{passwordError}</p>
                   )}
-                  
                   <button
-                    onClick={handleCreateAdmin}
-                    disabled={creatingAdmin}
-                    className="mt-5 px-6 py-3 bg-[#FF4500] text-white rounded-lg hover:bg-[#E03D00] transition-all disabled:opacity-50 flex items-center justify-center gap-2 font-medium"
+                    onClick={handleRequestAdminCode}
+                    disabled={sendingCode}
+                    className="mt-3 px-4 py-2 bg-[#FF4500] text-white rounded-lg hover:bg-[#E03D00] transition-all disabled:opacity-50 text-sm"
                   >
-                    {creatingAdmin ? (
-                      <>
-                        <Loader2 size={18} className="animate-spin" />
-                        Création en cours...
-                      </>
-                    ) : (
-                      <>
-                        <UserPlus size={18} />
-                        Ajouter un administrateur
-                      </>
-                    )}
+                    {sendingCode ? 'Envoi du code...' : 'Ajouter un administrateur'}
                   </button>
                 </div>
 
@@ -404,27 +457,16 @@ export const Settings: React.FC = () => {
                       <div className="col-span-1">Action</div>
                     </div>
                     {admins.map((admin) => (
-                      <div key={admin._id} className="grid grid-cols-12 gap-3 py-3 border-b border-gray-100 dark:border-gray-800 items-center hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-                        <div className="col-span-4 text-sm font-medium flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-[#FF4500]/10 flex items-center justify-center">
-                            <span className="text-[#FF4500] font-bold text-xs">
-                              {admin.name.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                          {admin.name}
-                        </div>
+                      <div key={admin._id} className="grid grid-cols-12 gap-3 py-3 border-b border-gray-100 dark:border-gray-800 items-center">
+                        <div className="col-span-4 text-sm font-medium">{admin.name}</div>
                         <div className="col-span-4 text-sm text-gray-600 dark:text-gray-400">{admin.email}</div>
                         <div className="col-span-3 text-xs text-gray-500">
-                          {new Date(admin.createdAt).toLocaleDateString('fr-FR', {
-                            day: 'numeric',
-                            month: 'long',
-                            year: 'numeric'
-                          })}
+                          {new Date(admin.createdAt).toLocaleDateString('fr-FR')}
                         </div>
                         <div className="col-span-1">
                           <button
                             onClick={() => handleDeleteAdmin(admin._id, admin.email)}
-                            className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                            className="text-red-500 hover:text-red-700 transition-colors"
                             title="Supprimer"
                           >
                             <Trash2 size={16} />
@@ -445,7 +487,11 @@ export const Settings: React.FC = () => {
             </h2>
             <p className="text-gray-600 dark:text-gray-400">Email: admin@test.com</p>
             <p className="text-gray-600 dark:text-gray-400">Rôle: Administrateur principal</p>
-            <button className="mt-3 text-sm text-[#FF4500] hover:underline flex items-center gap-1">
+            <button 
+              onClick={() => setShowPasswordModal(true)}
+              className="mt-3 text-sm text-[#FF4500] hover:underline flex items-center gap-1"
+            >
+              <Lock size={14} />
               Changer le mot de passe
             </button>
           </div>
@@ -455,13 +501,13 @@ export const Settings: React.FC = () => {
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
               <Bell size={20} /> Notifications
             </h2>
-            <label className="flex items-center justify-between cursor-pointer py-2 hover:bg-gray-50 dark:hover:bg-gray-800/30 px-3 -mx-3 rounded-lg transition-colors">
+            <label className="flex items-center justify-between cursor-pointer py-2">
               <span className="text-gray-700 dark:text-gray-300">Notifications par email</span>
-              <input type="checkbox" defaultChecked className="w-4 h-4 accent-[#FF4500] rounded" />
+              <input type="checkbox" defaultChecked className="w-4 h-4 accent-[#FF4500]" />
             </label>
-            <label className="flex items-center justify-between cursor-pointer py-2 hover:bg-gray-50 dark:hover:bg-gray-800/30 px-3 -mx-3 rounded-lg transition-colors">
+            <label className="flex items-center justify-between cursor-pointer py-2">
               <span className="text-gray-700 dark:text-gray-300">Alerte nouvelle publication</span>
-              <input type="checkbox" defaultChecked className="w-4 h-4 accent-[#FF4500] rounded" />
+              <input type="checkbox" defaultChecked className="w-4 h-4 accent-[#FF4500]" />
             </label>
           </div>
 
@@ -470,16 +516,16 @@ export const Settings: React.FC = () => {
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
               <Globe size={20} /> Préférences
             </h2>
-            <div className="mb-4">
-              <label className="block mb-2 text-sm text-gray-700 dark:text-gray-300">Langue</label>
-              <select className="w-full p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-[#FF4500] focus:border-transparent transition-all">
+            <div className="mb-3">
+              <label className="block mb-1 text-gray-700 dark:text-gray-300">Langue</label>
+              <select className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
                 <option value="fr">Français</option>
                 <option value="en">English</option>
               </select>
             </div>
             <div>
-              <label className="block mb-2 text-sm text-gray-700 dark:text-gray-300">Thème</label>
-              <select className="w-full p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-[#FF4500] focus:border-transparent transition-all">
+              <label className="block mb-1 text-gray-700 dark:text-gray-300">Thème</label>
+              <select className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
                 <option value="system">Système</option>
                 <option value="light">Clair</option>
                 <option value="dark">Sombre</option>
@@ -490,25 +536,210 @@ export const Settings: React.FC = () => {
           {/* Bouton sauvegarder */}
           <div className="flex justify-end">
             <button
-              onClick={handleSave}
+              onClick={() => {
+                setSaving(true);
+                setTimeout(() => {
+                  alert('Paramètres sauvegardés !');
+                  setSaving(false);
+                }, 1000);
+              }}
               disabled={saving}
-              className="px-8 py-3 bg-[#FF4500] text-white rounded-lg hover:bg-[#E03D00] transition-all disabled:opacity-50 flex items-center gap-2 font-medium shadow-sm hover:shadow-md"
+              className="px-6 py-2 bg-[#FF4500] text-white rounded-lg hover:bg-[#E03D00] transition-all disabled:opacity-50"
             >
-              {saving ? (
-                <>
-                  <Loader2 size={18} className="animate-spin" />
-                  Sauvegarde...
-                </>
-              ) : (
-                <>
-                  <Save size={18} />
-                  Sauvegarder les paramètres
-                </>
-              )}
+              {saving ? 'Sauvegarde...' : 'Sauvegarder'}
             </button>
           </div>
         </div>
       </div>
+
+      {/* MODAL CHANGER MOT DE PASSE */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-xl max-w-md w-full overflow-hidden">
+            <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 p-6 flex justify-between items-center">
+              <h2 className="text-xl font-black uppercase tracking-tighter flex items-center gap-2">
+                <KeyRound size={20} className="text-[#FF4500]" />
+                Changer le mot de passe
+              </h2>
+              <button 
+                onClick={() => setShowPasswordModal(false)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {passwordMessage && (
+                <div className={`p-3 rounded-lg text-sm ${
+                  passwordMessage.type === 'success' 
+                    ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                    : 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+                }`}>
+                  {passwordMessage.text}
+                </div>
+              )}
+
+              {/* Mot de passe actuel */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-2">
+                  Mot de passe actuel
+                </label>
+                <div className="relative">
+                  <input
+                    type={showCurrentPassword ? "text" : "password"}
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    className="w-full p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-[#FF4500] focus:border-transparent pr-10"
+                    placeholder="••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  >
+                    {showCurrentPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Nouveau mot de passe */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-2">
+                  Nouveau mot de passe
+                </label>
+                <div className="relative">
+                  <input
+                    type={showNewPassword ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-[#FF4500] focus:border-transparent pr-10"
+                    placeholder="••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  >
+                    {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Confirmation */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-2">
+                  Confirmer le nouveau mot de passe
+                </label>
+                <div className="relative">
+                  <input
+                    type={showConfirmNewPassword ? "text" : "password"}
+                    value={confirmNewPassword}
+                    onChange={(e) => setConfirmNewPassword(e.target.value)}
+                    className="w-full p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-[#FF4500] focus:border-transparent pr-10"
+                    placeholder="••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  >
+                    {showConfirmNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setShowPasswordModal(false)}
+                  className="flex-1 px-4 py-2 border-2 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleChangePassword}
+                  disabled={changingPassword}
+                  className="flex-1 px-4 py-2 bg-[#FF4500] text-white rounded-lg hover:bg-[#E03D00] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {changingPassword ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" />
+                      Modification...
+                    </>
+                  ) : (
+                    'Modifier'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL VÉRIFICATION CODE ADMIN */}
+      {showAdminCodeModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-xl max-w-md w-full overflow-hidden">
+            <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 p-6 flex justify-between items-center">
+              <h2 className="text-xl font-black uppercase tracking-tighter flex items-center gap-2">
+                <KeyRound size={20} className="text-[#FF4500]" />
+                Vérification du code
+              </h2>
+              <button 
+                onClick={() => setShowAdminCodeModal(false)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {codeMessage && (
+                <div className={`p-3 rounded-lg text-sm ${
+                  codeMessage.type === 'success' 
+                    ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                    : 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+                }`}>
+                  {codeMessage.text}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-2">
+                  Code reçu par email
+                </label>
+                <input
+                  type="text"
+                  value={adminCode}
+                  onChange={(e) => setAdminCode(e.target.value)}
+                  className="w-full p-3 text-center text-2xl tracking-widest border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-[#FF4500] focus:border-transparent"
+                  placeholder="00000000"
+                  maxLength={8}
+                />
+              </div>
+
+              <p className="text-xs text-gray-500 text-center">
+                Un code à 8 chiffres a été envoyé à <strong>{pendingAdminData?.email}</strong>
+              </p>
+
+              <button
+                onClick={handleVerifyAdminCode}
+                disabled={creatingAdmin}
+                className="w-full py-3 bg-[#FF4500] text-white rounded-lg hover:bg-[#E03D00] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {creatingAdmin ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    Vérification...
+                  </>
+                ) : (
+                  'Vérifier et créer'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 };

@@ -9,8 +9,9 @@ import {
   TrendingUp,
   ChevronDown,
   XCircle,
-  Clock
+  Clock,
 } from 'lucide-react';
+import logo from '../../assets/logo.png';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 interface SidebarProps {
@@ -139,10 +140,17 @@ const rejectedCategories = [
 
   return (
     <div className="h-full flex flex-col bg-white dark:bg-gray-900 relative">
+      
       <div className="h-6" />
 
-      <nav className="flex-1 py-4 overflow-y-auto">
-        
+      <nav className="flex-1 overflow-y-auto">
+        <div className="flex justify-between items-center">
+                <img 
+                  src={logo} 
+                  alt="Axio News Logo" 
+                  className="h-10 md:h-12 rounded-lg overflow-hidden relative" 
+                />
+        </div>
         {/* TABLEAU DE BORD */}
         <div
           onClick={() => handleNavigation('/admin')}

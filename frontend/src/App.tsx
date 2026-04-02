@@ -11,10 +11,24 @@ import './App.css';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('auth_token');
+    const userStr = localStorage.getItem('user');
+    
     setIsAuthenticated(!!token);
+    
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        setIsAdmin(user.role === 'admin');
+        console.log('👤 Utilisateur:', user.email, '- Rôle:', user.role);
+      } catch (e) {
+        console.error('Erreur parsing user:', e);
+        setIsAdmin(false);
+      }
+    }
   }, []);
 
   return (
@@ -25,7 +39,7 @@ function App() {
         <Route 
           path="/admin" 
           element={
-            isAuthenticated ? <Dashboard /> : <Navigate to="/login" />
+            isAuthenticated && isAdmin ? <Dashboard /> : <Navigate to="/login" />
           } 
         />
         <Route path="/article/:id" element={<ArticleDetail />} />
@@ -33,21 +47,21 @@ function App() {
         {/* Routes pour les articles par statut et catégorie */}
         <Route 
           path="/admin/articles/:status/:category" 
-          element={isAuthenticated ? <ArticlesByCategory /> : <Navigate to="/login" />} 
+          element={isAuthenticated && isAdmin ? <ArticlesByCategory /> : <Navigate to="/login" />} 
         />
         <Route 
           path="/admin/articles/:status" 
-          element={isAuthenticated ? <ArticlesByCategory /> : <Navigate to="/login" />} 
+          element={isAuthenticated && isAdmin ? <ArticlesByCategory /> : <Navigate to="/login" />} 
         />
 
         {/* Pages Statistiques et Paramètres */}
         <Route 
           path="/admin/stats" 
-          element={isAuthenticated ? <Stats /> : <Navigate to="/login" />} 
+          element={isAuthenticated && isAdmin ? <Stats /> : <Navigate to="/login" />} 
         />
         <Route 
           path="/admin/settings" 
-          element={isAuthenticated ? <Settings /> : <Navigate to="/login" />} 
+          element={isAuthenticated && isAdmin ? <Settings /> : <Navigate to="/login" />} 
         />
       </Routes>
     </Router>

@@ -25,7 +25,7 @@ export const Home: React.FC = () => {
   useEffect(() => {
     api.get('/articles?status=published')
       .then(res => {
-        console.log('📦 Articles publiés reçus:', res.data);
+        console.log('Articles publiés reçus:', res.data);
         setArticles(res.data.data || []);
         setFilteredArticles(res.data.data || []);
       })
@@ -34,21 +34,21 @@ export const Home: React.FC = () => {
   }, []);
 
   const filterArticlesByCategory = (category: string) => {
-  console.log('🔍 Filtrage par catégorie:', category);
-  console.log('📦 Articles disponibles:', articles.length);
-  console.log('🏷️ Catégories des articles:', articles.map(a => a.categorie));
+  console.log('Filtrage par catégorie:', category);
+  console.log('Articles disponibles:', articles.length);
+  console.log('Catégories des articles:', articles.map(a => a.categorie));
   
   setActiveCategory(category);
   if (category === 'all') {
     setFilteredArticles(articles);
-    console.log('✅ Affichage de tous les articles:', articles.length);
+    console.log('Affichage de tous les articles:', articles.length);
   } else {
     const filtered = articles.filter(article => {
       const match = article.categorie?.toLowerCase() === category.toLowerCase();
       console.log(`   "${article.title.substring(0, 40)}" -> ${article.categorie} -> match: ${match}`);
       return match;
     });
-    console.log('✅ Articles filtrés pour', category, ':', filtered.length);
+    console.log('Articles filtrés pour', category, ':', filtered.length);
     setFilteredArticles(filtered);
   }
 };
@@ -149,7 +149,7 @@ const handleSubscribe = async (e: React.FormEvent) => {
                 <p className="text-gray-500 dark:text-gray-400 text-sm md:text-base whitespace-nowrap">
                   <span className="bg-[#FF4500] text-white px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-full inline-flex items-center gap-2 shadow-lg">
                     <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
-                    ALERTE INFO
+                    DERNIERE INFO
                   </span>
                 </p>
               </div>
