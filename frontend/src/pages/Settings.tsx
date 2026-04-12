@@ -266,10 +266,10 @@ export const Settings: React.FC = () => {
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b-4 border-black dark:border-white">
             <div>
               <div className="flex items-center gap-2 mb-2 text-[#FF4500] font-black uppercase tracking-[0.3em] text-[10px]">
-                <Newspaper size={14} /> Système de Rédaction
+               <Newspaper size={14} /> Système de Rédaction
               </div>
-              <h1 className="text-5xl font-black uppercase tracking-tighter dark:text-white italic">
-                ⚙️ Paramètres
+              <h1 className="text-4xl font-black uppercase tracking-tighter dark:text-white italic">
+                Paramètres
               </h1>
             </div>
           </div>

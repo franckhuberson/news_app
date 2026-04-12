@@ -84,8 +84,8 @@ export const Stats: React.FC = () => {
               <div className="flex items-center gap-2 mb-2 text-[#FF4500] font-black uppercase tracking-[0.3em] text-[10px]">
                 <Newspaper size={14} /> Système de Rédaction
               </div>
-              <h1 className="text-5xl font-black uppercase tracking-tighter dark:text-white italic">
-                📊 Statistiques
+              <h1 className="text-4xl font-black uppercase tracking-tighter dark:text-white italic">
+                Statistiques
               </h1>
             </div>
             

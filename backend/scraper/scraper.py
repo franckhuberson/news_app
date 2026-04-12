@@ -1,9 +1,8 @@
-import requests
-import certifi
-from bs4 import BeautifulSoup
-from newspaper import Article
-from pymongo import MongoClient
-from dotenv import load_dotenv
+import requests # type: ignore
+from bs4 import BeautifulSoup # type: ignore
+from newspaper import Article # type: ignore
+from pymongo import MongoClient # type: ignore
+from dotenv import load_dotenv # type: ignore
 from datetime import datetime
 import os
 import time
