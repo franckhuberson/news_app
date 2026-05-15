@@ -22,11 +22,10 @@ const validateId = (req, res, next) => {
 
 /**
  * GET /api/articles
- * Récupère tous les articles avec pagination et filtres
+ * Récupère tous les articles avec pagination et filtres (VERSION OPTIMISÉE)
  */
 router.get('/', async (req, res) => {
     try {
-        // Paramètres de requête
         const { 
             status, 
             source, 
@@ -36,24 +35,25 @@ router.get('/', async (req, res) => {
             order = 'desc'
         } = req.query;
 
-        // Construction du filtre
         const filter = {};
         if (status) filter.status = status;
         if (source) filter.source = source;
-        if (req.query.categorie) filter.categorie = req.query.categorie; // ← AJOUT
+        if (req.query.categorie) filter.categorie = req.query.categorie;
 
-        // Pagination
         const skip = (parseInt(page) - 1) * parseInt(limit);
         const sortOrder = order === 'desc' ? -1 : 1;
 
-        // Exécution de la requête
-        const articles = await Article.find(filter)
-            .sort({ [sortBy]: sortOrder })
-            .limit(parseInt(limit))
-            .skip(skip);
+        // ✅ OPTIMISATION: Exécution parallèle avec lean() pour meilleures performances
+        const [articles, total] = await Promise.all([
+            Article.find(filter)
+                .sort({ [sortBy]: sortOrder })
+                .limit(parseInt(limit))
+                .skip(skip)
+                .lean(), // ✅ lean() pour des résultats plus rapides
+            Article.countDocuments(filter)
+        ]);
 
-        // Comptage total pour pagination
-        const total = await Article.countDocuments(filter);
+        console.log(`📊 GET /articles - Status: ${status || 'tous'}, Total: ${total}, Retourné: ${articles.length}`);
 
         res.json({
             success: true,
@@ -68,7 +68,7 @@ router.get('/', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Erreur GET /articles:', error);
+        console.error('❌ Erreur GET /articles:', error);
         res.status(500).json({ 
             success: false,
             message: 'Erreur serveur',
@@ -79,13 +79,16 @@ router.get('/', async (req, res) => {
 
 /**
  * GET /api/articles/pending
- * Récupère uniquement les articles en attente
+ * Récupère uniquement les articles en attente (OPTIMISÉ)
  */
 router.get('/pending', async (req, res) => {
     try {
         const articles = await Article.find({ status: 'pending' })
             .sort({ scrapedAt: -1 })
-            .limit(100);
+            .limit(100)
+            .lean(); // ✅ lean() pour meilleures performances
+
+        console.log(`📊 GET /pending - ${articles.length} articles en attente`);
 
         res.json({
             success: true,
@@ -94,7 +97,33 @@ router.get('/pending', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Erreur GET /pending:', error);
+        console.error('❌ Erreur GET /pending:', error);
+        res.status(500).json({ 
+            success: false,
+            message: 'Erreur serveur' 
+        });
+    }
+});
+
+/**
+ * GET /api/articles/scheduled
+ * Récupère les articles programmés
+ */
+router.get('/scheduled', protect, async (req, res) => {
+    try {
+        const articles = await Article.find({ 
+            isScheduled: true,
+            status: 'pending'
+        }).sort({ scheduledPublishDate: 1 }).lean();
+
+        res.json({
+            success: true,
+            count: articles.length,
+            data: articles
+        });
+
+    } catch (error) {
+        console.error('❌ Erreur GET /scheduled:', error);
         res.status(500).json({ 
             success: false,
             message: 'Erreur serveur' 
@@ -104,27 +133,18 @@ router.get('/pending', async (req, res) => {
 
 /**
  * GET /api/articles/stats
- * Récupère les statistiques des articles
+ * Récupère les statistiques des articles (OPTIMISÉ)
  */
 router.get('/stats', async (req, res) => {
     try {
-        // Stats par statut
-        const byStatus = await Article.aggregate([
-            { $group: { _id: '$status', count: { $sum: 1 } } }
+        // ✅ OPTIMISATION: Exécution parallèle des agrégations
+        const [byStatus, bySource, total, scheduledCount, lastScraped] = await Promise.all([
+            Article.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
+            Article.aggregate([{ $group: { _id: '$source', count: { $sum: 1 } } }]),
+            Article.countDocuments(),
+            Article.countDocuments({ isScheduled: true, status: 'pending' }),
+            Article.findOne().sort({ scrapedAt: -1 }).select('scrapedAt').lean()
         ]);
-
-        // Stats par source
-        const bySource = await Article.aggregate([
-            { $group: { _id: '$source', count: { $sum: 1 } } }
-        ]);
-
-        // Total général
-        const total = await Article.countDocuments();
-
-        // Dernier scraping
-        const lastScraped = await Article.findOne()
-            .sort({ scrapedAt: -1 })
-            .select('scrapedAt');
 
         res.json({
             success: true,
@@ -138,12 +158,13 @@ router.get('/stats', async (req, res) => {
                     acc[item._id] = item.count;
                     return acc;
                 }, {}),
-                lastScraped: lastScraped?.scrapedAt || null
+                lastScraped: lastScraped?.scrapedAt || null,
+                scheduledCount
             }
         });
 
     } catch (error) {
-        console.error('Erreur GET /stats:', error);
+        console.error('❌ Erreur GET /stats:', error);
         res.status(500).json({ 
             success: false,
             message: 'Erreur serveur' 
@@ -157,7 +178,7 @@ router.get('/stats', async (req, res) => {
  */
 router.get('/:id', validateId, async (req, res) => {
     try {
-        const article = await Article.findById(req.params.id);
+        const article = await Article.findById(req.params.id).lean();
 
         if (!article) {
             return res.status(404).json({ 
@@ -172,7 +193,7 @@ router.get('/:id', validateId, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Erreur GET /article/:id:', error);
+        console.error('❌ Erreur GET /article/:id:', error);
         res.status(500).json({ 
             success: false,
             message: 'Erreur serveur' 
@@ -188,11 +209,10 @@ router.get('/:id', validateId, async (req, res) => {
  * PUT /api/articles/:id
  * Modifie complètement un article
  */
-router.put('/:id', protect, admin, validateId, async (req, res) => {
+router.put('/:id', protect, async (req, res) => {
     try {
         const { title, summary, originalContent, imageUrl, modifiedBy } = req.body;
 
-        // Vérifier que l'article existe
         const article = await Article.findById(req.params.id);
         if (!article) {
             return res.status(404).json({ 
@@ -201,7 +221,6 @@ router.put('/:id', protect, admin, validateId, async (req, res) => {
             });
         }
 
-        // Enregistrer les modifications
         const modifications = [];
         if (title && title !== article.title) {
             modifications.push({
@@ -225,20 +244,21 @@ router.put('/:id', protect, admin, validateId, async (req, res) => {
             });
         }
 
-        // Mise à jour
+        const updateData = {
+            title: title || article.title,
+            summary: summary || article.summary,
+            originalContent: originalContent || article.originalContent,
+            imageUrl: imageUrl || article.imageUrl,
+            modifiedBy: modifiedBy || 'admin'
+        };
+
+        if (modifications.length > 0) {
+            updateData.modifications = [...article.modifications, ...modifications];
+        }
+
         const updatedArticle = await Article.findByIdAndUpdate(
             req.params.id,
-            {
-                $set: {
-                    title: title || article.title,
-                    summary: summary || article.summary,
-                    originalContent: originalContent || article.originalContent,
-                    imageUrl: imageUrl || article.imageUrl,
-                    modifiedBy: modifiedBy || 'admin',
-                    status: 'modified'
-                },
-                $push: { modifications: { $each: modifications } }
-            },
+            { $set: updateData },
             { new: true, runValidators: true }
         );
 
@@ -249,7 +269,7 @@ router.put('/:id', protect, admin, validateId, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Erreur PUT /article/:id:', error);
+        console.error('❌ Erreur PUT /article/:id:', error);
         res.status(500).json({ 
             success: false,
             message: 'Erreur serveur',
@@ -262,11 +282,10 @@ router.put('/:id', protect, admin, validateId, async (req, res) => {
  * PATCH /api/articles/:id/status
  * Change uniquement le statut d'un article
  */
-router.patch('/:id/status', protect, admin, validateId, async (req, res) => {
+router.patch('/:id/status', protect, async (req, res) => {
     try {
         const { status } = req.body;
 
-        // Validation du statut
         const validStatuses = ['pending', 'modified', 'published', 'rejected'];
         if (!validStatuses.includes(status)) {
             return res.status(400).json({ 
@@ -275,13 +294,13 @@ router.patch('/:id/status', protect, admin, validateId, async (req, res) => {
             });
         }
 
-        // Préparer les données de mise à jour
         const updateData = { status };
         if (status === 'published') {
             updateData.publishedAt = new Date();
+            updateData.isScheduled = false;
+            updateData.scheduledPublishDate = null;
         }
 
-        // Mise à jour
         const article = await Article.findByIdAndUpdate(
             req.params.id,
             updateData,
@@ -302,9 +321,135 @@ router.patch('/:id/status', protect, admin, validateId, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Erreur PATCH /status:', error);
+        console.error('❌ Erreur PATCH /status:', error);
         res.status(500).json({ 
             success: false,
+            message: 'Erreur serveur' 
+        });
+    }
+});
+
+// ===========================================
+// ROUTES : PUBLICATION PROGRAMMÉE
+// ===========================================
+
+/**
+ * POST /api/articles/:id/schedule
+ * Programme la publication d'un article
+ */
+router.post('/:id/schedule', protect, async (req, res) => {
+    try {
+        const { publishDate } = req.body;
+        
+        if (!publishDate) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Date de publication requise' 
+            });
+        }
+
+        const scheduledDate = new Date(publishDate);
+        
+        if (scheduledDate <= new Date()) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'La date de publication doit être dans le futur' 
+            });
+        }
+
+        const article = await Article.findById(req.params.id);
+        
+        if (!article) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Article non trouvé' 
+            });
+        }
+
+        await article.schedulePublish(scheduledDate, req.user._id);
+
+        res.json({
+            success: true,
+            message: `Article programmé pour le ${scheduledDate.toLocaleString('fr-FR')}`,
+            data: article
+        });
+
+    } catch (error) {
+        console.error('❌ Erreur POST /schedule:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Erreur serveur',
+            error: error.message 
+        });
+    }
+});
+
+/**
+ * DELETE /api/articles/:id/schedule
+ * Annule la publication programmée d'un article
+ */
+router.delete('/:id/schedule', protect, async (req, res) => {
+    try {
+        const article = await Article.findById(req.params.id);
+        
+        if (!article) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Article non trouvé' 
+            });
+        }
+
+        if (!article.isScheduled) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Cet article n\'est pas programmé' 
+            });
+        }
+
+        await article.cancelSchedule();
+
+        res.json({
+            success: true,
+            message: 'Publication programmée annulée',
+            data: article
+        });
+
+    } catch (error) {
+        console.error('❌ Erreur DELETE /schedule:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Erreur serveur' 
+        });
+    }
+});
+
+/**
+ * POST /api/articles/publish-now/:id
+ * Publication immédiate d'un article
+ */
+router.post('/publish-now/:id', protect, async (req, res) => {
+    try {
+        const article = await Article.findById(req.params.id);
+        
+        if (!article) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Article non trouvé' 
+            });
+        }
+
+        await article.publish();
+
+        res.json({
+            success: true,
+            message: 'Article publié immédiatement',
+            data: article
+        });
+
+    } catch (error) {
+        console.error('❌ Erreur POST /publish-now:', error);
+        res.status(500).json({ 
+            success: false, 
             message: 'Erreur serveur' 
         });
     }
@@ -316,9 +461,9 @@ router.patch('/:id/status', protect, admin, validateId, async (req, res) => {
 
 /**
  * DELETE /api/articles/:id
- * Supprime un article (rejet définitif)
+ * Supprime un article
  */
-router.delete('/:id', protect, admin, validateId, async (req, res) => {
+router.delete('/:id', protect, async (req, res) => {
     try {
         const article = await Article.findByIdAndDelete(req.params.id);
 
@@ -335,7 +480,7 @@ router.delete('/:id', protect, admin, validateId, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Erreur DELETE /article/:id:', error);
+        console.error('❌ Erreur DELETE /article/:id:', error);
         res.status(500).json({ 
             success: false,
             message: 'Erreur serveur' 

@@ -143,25 +143,6 @@ export const ArticleDetail: React.FC = () => {
                 </p>
               </div>
             </div>
-
-            {/* Bouton vers la source externe */}
-            <div className="flex flex-col items-start gap-6 border-t border-gray-100 dark:border-gray-800 pt-8">
-              <a
-                href={article.sourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group flex items-center gap-2 px-8 py-4 bg-[#FF4500] text-white rounded-lg hover:bg-[#E03D00] transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-              >
-                <span className="font-bold">Lire l'article complet sur {article.source}</span>
-                <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                </svg>
-              </a>
-              
-              <p className="text-sm text-gray-500 dark:text-gray-400 italic">
-                Vous allez être redirigé vers le site d'origine.
-              </p>
-            </div>
           </div>
         </article>
       </main>

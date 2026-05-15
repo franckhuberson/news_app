@@ -1,4 +1,4 @@
-// src/types/index.ts
+// frontend/src/types/index.ts
 
 export interface Article {
   _id: string;
@@ -8,15 +8,57 @@ export interface Article {
   imageUrl?: string;
   source: string;
   sourceUrl: string;
-  status: 'pending' | 'published' | 'rejected' | 'modified';
+  status: 'pending' | 'published' | 'rejected' | 'modified' | 'scheduled';  // ✅ Ajout de 'scheduled'
+  scheduledPublishDate?: string;  // ✅ Ajout
+  isScheduled?: boolean;          // ✅ Ajout
   scrapedAt: string;
   publishedAt?: string;
   modifiedBy?: string;
+  categorie?: string;
+  facebookPostId?: string;
+  sharedOnFacebook?: boolean;
+  facebookShareDate?: string;
+  lastWhatsAppShare?: string;
+  modifications?: Array<{
+    field: string;
+    oldValue: string;
+    newValue: string;
+    modifiedAt: string;
+  }>;
   metadata: {
     authors?: string[];
     keywords?: string[];
     wordCount?: number;
+    publishDate?: string;
   };
+}
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: 'user' | 'admin';
+  createdAt: string;
+}
+
+export interface Stats {
+  total: number;
+  byStatus: {
+    pending: number;
+    published: number;
+    rejected: number;
+    modified: number;
+    scheduled?: number;  // ✅ Ajout
+  };
+  bySource: Record<string, number>;
+  lastScraped: string | null;
+  scheduledCount?: number;  // ✅ Ajout
+}
+
+export interface ApiResponse<T> {
+  success: boolean;
+  message?: string;
+  data: T;
 }
 
 export interface ArticlesResponse {
@@ -29,30 +71,4 @@ export interface ArticlesResponse {
     total: number;
     pages: number;
   };
-}
-
-export interface ArticleResponse {
-  success: boolean;
-  data: Article;
-}
-
-export interface StatsResponse {
-  success: boolean;
-  data: {
-    total: number;
-    byStatus: {
-      pending: number;
-      published: number;
-      rejected: number;
-      modified: number;
-    };
-    bySource: Record<string, number>;
-    lastScraped: string | null;
-  };
-}
-
-export interface ApiError {
-  success: false;
-  message: string;
-  error?: string;
 }

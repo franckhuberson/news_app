@@ -2,13 +2,44 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
-import { Newspaper, LogOut, BarChart3, Users, Mail, Trash2, Eye } from 'lucide-react';
+import { Newspaper, LogOut, Users, Mail, Trash2, Eye, Activity } from 'lucide-react';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
+} from 'recharts';
 
 interface Subscriber {
   _id: string;
   email: string;
   subscribedAt: string;
   status: string;
+}
+
+interface DailyVisitorData {
+  date: string;
+  formattedDate: string;
+  visits: number;
+  uniqueVisitors: number;
+  pageViews: number;
+}
+
+interface VisitorStats {
+  summary: {
+    totalVisits: number;
+    totalUniqueVisitors: number;
+    totalPageViews: number;
+    avgVisitsPerDay: number;
+    avgPageViewsPerDay: number;
+    period: string;
+  };
+  daily: DailyVisitorData[];
+  topPages: { page: string; views: number }[];
 }
 
 export const Stats: React.FC = () => {
@@ -18,6 +49,11 @@ export const Stats: React.FC = () => {
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [loadingSubscribers, setLoadingSubscribers] = useState(false);
   const [showSubscribers, setShowSubscribers] = useState(false);
+  
+  const [visitorStats, setVisitorStats] = useState<VisitorStats | null>(null);
+  const [loadingVisitors, setLoadingVisitors] = useState(false);
+  const [period, setPeriod] = useState<'7d' | '30d' | '90d'>('30d');
+  const [chartType, setChartType] = useState<'visits' | 'pageViews'>('visits');
 
   const handleLogout = () => {
     localStorage.removeItem('auth_token');
@@ -25,7 +61,6 @@ export const Stats: React.FC = () => {
     navigate('/login');
   };
 
-  // Récupérer les statistiques des articles
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -40,7 +75,24 @@ export const Stats: React.FC = () => {
     fetchStats();
   }, []);
 
-  // Récupérer la liste des abonnés
+  useEffect(() => {
+    fetchVisitorStats();
+  }, [period]);
+
+  const fetchVisitorStats = async () => {
+    setLoadingVisitors(true);
+    try {
+      const response = await api.get(`/visitors/stats?period=${period}`);
+      if (response.data.success) {
+        setVisitorStats(response.data.data);
+      }
+    } catch (error) {
+      console.error('Erreur chargement stats visiteurs:', error);
+    } finally {
+      setLoadingVisitors(false);
+    }
+  };
+
   const fetchSubscribers = async () => {
     setLoadingSubscribers(true);
     try {
@@ -53,7 +105,6 @@ export const Stats: React.FC = () => {
     }
   };
 
-  // Supprimer un abonné
   const handleDeleteSubscriber = async (id: string) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer cet abonné ?')) return;
     try {
@@ -66,13 +117,23 @@ export const Stats: React.FC = () => {
     }
   };
 
-  // Ouvrir/fermer la liste des abonnés
   const handleShowSubscribers = () => {
     setShowSubscribers(!showSubscribers);
     if (!showSubscribers) {
       fetchSubscribers();
     }
   };
+
+  const chartData = visitorStats?.daily.map(day => ({
+    date: day.formattedDate,
+    visites: day.visits,
+    pagesVues: day.pageViews
+  })) || [];
+
+  // Calcul des statistiques actuelles
+  const todayVisits = visitorStats?.daily[visitorStats.daily.length - 1]?.visits || 0;
+  const monthVisits = visitorStats?.summary.totalVisits || 0;
+  const avgPerDay = visitorStats?.summary.avgVisitsPerDay || 0;
 
   return (
     <DashboardLayout>
@@ -88,12 +149,10 @@ export const Stats: React.FC = () => {
                 Statistiques
               </h1>
             </div>
-            
             <div className="flex gap-3">
               <button
                 onClick={handleLogout}
                 className="px-4 py-4 border-2 border-black dark:border-white hover:bg-red-600 hover:border-red-600 hover:text-white transition-all duration-300"
-                title="Déconnexion"
               >
                 <LogOut size={18} />
               </button>
@@ -107,32 +166,126 @@ export const Stats: React.FC = () => {
           </div>
         ) : (
           <>
-            {/* Cartes statistiques articles */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-              <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow border border-gray-200 dark:border-gray-800">
-                <div className="text-3xl font-bold text-blue-600">{stats?.total || 0}</div>
-                <div className="text-gray-500 mt-1">Total articles</div>
+            {/* ===== STATISTIQUES VISITEURS ===== */}
+            <div className="mb-8">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3">
+                  <Activity size={24} className="text-[#FF4500]" />
+                  Fréquentation du site
+                </h2>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setPeriod('7d')}
+                    className={`px-3 py-1 text-xs font-bold uppercase rounded-lg transition-colors ${
+                      period === '7d' ? 'bg-[#FF4500] text-white' : 'bg-gray-100 text-gray-600'
+                    }`}
+                  >
+                    7 jours
+                  </button>
+                  <button
+                    onClick={() => setPeriod('30d')}
+                    className={`px-3 py-1 text-xs font-bold uppercase rounded-lg transition-colors ${
+                      period === '30d' ? 'bg-[#FF4500] text-white' : 'bg-gray-100 text-gray-600'
+                    }`}
+                  >
+                    30 jours
+                  </button>
+                  <button
+                    onClick={() => setPeriod('90d')}
+                    className={`px-3 py-1 text-xs font-bold uppercase rounded-lg transition-colors ${
+                      period === '90d' ? 'bg-[#FF4500] text-white' : 'bg-gray-100 text-gray-600'
+                    }`}
+                  >
+                    90 jours
+                  </button>
+                </div>
               </div>
-              <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow border border-gray-200 dark:border-gray-800">
-                <div className="text-3xl font-bold text-orange-500">{stats?.byStatus?.pending || 0}</div>
-                <div className="text-gray-500 mt-1">En attente</div>
-              </div>
-              <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow border border-gray-200 dark:border-gray-800">
-                <div className="text-3xl font-bold text-green-600">{stats?.byStatus?.published || 0}</div>
-                <div className="text-gray-500 mt-1">Publiés</div>
-              </div>
-              <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow border border-gray-200 dark:border-gray-800">
-                <div className="text-3xl font-bold text-red-600">{stats?.byStatus?.rejected || 0}</div>
-                <div className="text-gray-500 mt-1">Rejetés</div>
-              </div>
+              
+              {loadingVisitors ? (
+                <div className="flex justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF4500]"></div>
+                </div>
+              ) : visitorStats ? (
+                <>
+                  {/* ✅ NOUVELLES CARTES : Visites totales, Visiteurs du jour, Visiteurs du mois, Moyenne/jour */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                    <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow border border-gray-200">
+                      <div className="text-3xl font-bold text-[#FF4500]">{visitorStats.summary.totalVisits}</div>
+                      <div className="text-sm text-gray-500 mt-1">Visites totales</div>
+                    </div>
+                    <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow border border-gray-200">
+                      <div className="text-3xl font-bold text-blue-500">{todayVisits}</div>
+                      <div className="text-sm text-gray-500 mt-1">Visiteurs du jour</div>
+                    </div>
+                    <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow border border-gray-200">
+                      <div className="text-3xl font-bold text-green-500">{monthVisits}</div>
+                      <div className="text-sm text-gray-500 mt-1">Visiteurs du mois</div>
+                    </div>
+                    <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow border border-gray-200">
+                      <div className="text-3xl font-bold text-purple-500">{avgPerDay}</div>
+                      <div className="text-sm text-gray-500 mt-1">Moyenne / jour</div>
+                    </div>
+                  </div>
+
+                  {/* Sélecteur de type de graphique */}
+                  <div className="flex justify-end mb-4 gap-2">
+                    <button
+                      onClick={() => setChartType('visits')}
+                      className={`px-3 py-1 text-xs font-bold uppercase rounded-lg transition-colors ${
+                        chartType === 'visits' ? 'bg-[#FF4500] text-white' : 'bg-gray-100 text-gray-600'
+                      }`}
+                    >
+                      Visites
+                    </button>
+                    <button
+                      onClick={() => setChartType('pageViews')}
+                      className={`px-3 py-1 text-xs font-bold uppercase rounded-lg transition-colors ${
+                        chartType === 'pageViews' ? 'bg-[#FF4500] text-white' : 'bg-gray-100 text-gray-600'
+                      }`}
+                    >
+                      Pages vues
+                    </button>
+                  </div>
+
+                  {/* Graphique en courbe */}
+                  <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow border border-gray-200">
+                    <h3 className="text-lg font-bold uppercase tracking-tighter mb-4">
+                      Évolution {chartType === 'visits' ? 'des visites' : 'des pages vues'}
+                    </h3>
+                    <ResponsiveContainer width="100%" height={400}>
+                      <LineChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis dataKey="date" stroke="#6b7280" fontSize={12} />
+                        <YAxis stroke="#6b7280" fontSize={12} />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e5e7eb' }}
+                          formatter={(value) => [value, chartType === 'visits' ? 'Visites' : 'Pages vues']}
+                        />
+                        <Legend />
+                        <Line
+                          type="monotone"
+                          dataKey={chartType === 'visits' ? 'visites' : 'pagesVues'}
+                          stroke="#FF4500"
+                          strokeWidth={3}
+                          dot={{ fill: '#FF4500', strokeWidth: 2, r: 4 }}
+                          activeDot={{ r: 6 }}
+                          name={chartType === 'visits' ? 'Nombre de visites' : 'Nombre de pages vues'}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-12 bg-white rounded-xl border">
+                  <p className="text-gray-500">Aucune donnée de visite pour le moment</p>
+                  <p className="text-xs text-gray-400 mt-2">Les statistiques seront disponibles après les premières visites</p>
+                </div>
+              )}
             </div>
 
-            {/* SECTION ABONNÉS - NOUVEAU */}
-            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden mb-8">
-              <div 
-                onClick={handleShowSubscribers}
-                className="p-6 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors flex items-center justify-between"
-              >
+            {/* SECTION ABONNÉS */}
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 overflow-hidden mb-8">
+              <div onClick={handleShowSubscribers} className="p-6 cursor-pointer hover:bg-gray-50 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-[#FF4500]/10 rounded-lg">
                     <Users size={24} className="text-[#FF4500]" />
@@ -140,58 +293,33 @@ export const Stats: React.FC = () => {
                   <div>
                     <h2 className="text-xl font-bold">Abonnés à la newsletter</h2>
                     <p className="text-sm text-gray-500">
-                      {subscribers.length > 0 ? `${subscribers.length} abonnés` : 'Aucun abonné pour le moment'}
+                      {subscribers.length > 0 ? `${subscribers.length} abonnés` : 'Aucun abonné'}
                     </p>
                   </div>
                 </div>
-                <div className="text-[#FF4500]">
-                  <Eye size={20} className={showSubscribers ? 'rotate-180' : ''} />
-                </div>
+                <Eye size={20} className={`text-[#FF4500] transition-transform ${showSubscribers ? 'rotate-180' : ''}`} />
               </div>
 
               {showSubscribers && (
-                <div className="border-t border-gray-200 dark:border-gray-800 p-6">
+                <div className="border-t p-6">
                   {loadingSubscribers ? (
-                    <div className="flex justify-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF4500]"></div>
-                    </div>
+                    <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF4500]"></div></div>
                   ) : subscribers.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                      <Mail size={40} className="mx-auto mb-3 text-gray-300" />
-                      <p>Aucun abonné pour le moment</p>
-                    </div>
+                    <div className="text-center py-8 text-gray-500"><Mail size={40} className="mx-auto mb-3 text-gray-300" /><p>Aucun abonné</p></div>
                   ) : (
                     <div className="space-y-2">
-                      <div className="grid grid-cols-12 gap-3 pb-3 border-b border-gray-200 dark:border-gray-700 text-xs font-bold text-gray-500 uppercase">
+                      <div className="grid grid-cols-12 gap-3 pb-3 border-b text-xs font-bold text-gray-500 uppercase">
                         <div className="col-span-6">Email</div>
-                        <div className="col-span-3">Date d'abonnement</div>
+                        <div className="col-span-3">Date</div>
                         <div className="col-span-2">Statut</div>
                         <div className="col-span-1">Action</div>
                       </div>
                       {subscribers.map((sub) => (
-                        <div key={sub._id} className="grid grid-cols-12 gap-3 py-3 border-b border-gray-100 dark:border-gray-800 items-center">
+                        <div key={sub._id} className="grid grid-cols-12 gap-3 py-3 border-b items-center">
                           <div className="col-span-6 text-sm truncate">{sub.email}</div>
-                          <div className="col-span-3 text-xs text-gray-500">
-                            {new Date(sub.subscribedAt).toLocaleDateString('fr-FR')}
-                          </div>
-                          <div className="col-span-2">
-                            <span className={`px-2 py-1 text-xs rounded-full ${
-                              sub.status === 'active' 
-                                ? 'bg-green-100 text-green-700' 
-                                : 'bg-gray-100 text-gray-500'
-                            }`}>
-                              {sub.status === 'active' ? 'Actif' : 'Désabonné'}
-                            </span>
-                          </div>
-                          <div className="col-span-1">
-                            <button
-                              onClick={() => handleDeleteSubscriber(sub._id)}
-                              className="text-red-500 hover:text-red-700 transition-colors"
-                              title="Supprimer"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
+                          <div className="col-span-3 text-xs text-gray-500">{new Date(sub.subscribedAt).toLocaleDateString('fr-FR')}</div>
+                          <div className="col-span-2"><span className={`px-2 py-1 text-xs rounded-full ${sub.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100'}`}>{sub.status === 'active' ? 'Actif' : 'Désabonné'}</span></div>
+                          <div className="col-span-1"><button onClick={() => handleDeleteSubscriber(sub._id)} className="text-red-500 hover:text-red-700"><Trash2 size={16} /></button></div>
                         </div>
                       ))}
                     </div>
@@ -201,13 +329,11 @@ export const Stats: React.FC = () => {
             </div>
 
             {/* Sources */}
-            <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow border border-gray-200 dark:border-gray-800">
-              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <BarChart3 size={20} /> Sources
-              </h2>
+            <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow border">
+              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">📰 Sources des articles</h2>
               {stats?.bySource && Object.entries(stats.bySource).map(([source, count]) => (
-                <div key={source} className="flex justify-between py-2 border-b border-gray-100 dark:border-gray-800">
-                  <span className="text-gray-600 dark:text-gray-400">{source}</span>
+                <div key={source} className="flex justify-between py-2 border-b">
+                  <span className="text-gray-600">{source}</span>
                   <span className="font-bold text-[#FF4500]">{count as number}</span>
                 </div>
               ))}

@@ -1,5 +1,4 @@
 import axios from 'axios';
-import authService from './auth'; 
 
 // Définis les types localement pour éviter les erreurs d'import
 interface Article {
@@ -10,7 +9,9 @@ interface Article {
   imageUrl?: string;
   source: string;
   sourceUrl: string;
-  status: 'pending' | 'published' | 'rejected' | 'modified';
+  status: 'pending' | 'published' | 'rejected' | 'modified' | 'scheduled';
+  scheduledPublishDate?: string;
+  isScheduled?: boolean;
   scrapedAt: string;
   publishedAt?: string;
   modifiedBy?: string;
@@ -47,26 +48,34 @@ interface StatsResponse {
       published: number;
       rejected: number;
       modified: number;
+      scheduled?: number;
     };
     bySource: Record<string, number>;
     lastScraped: string | null;
+    scheduledCount?: number;
   };
 }
 
-const API_URL = 'http://localhost:5000/api';
+interface ScheduleResponse {
+  success: boolean;
+  message: string;
+  data: Article;
+}
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000,
+  timeout: 120000, // 2 minutes
 });
 
 // 🔐 Intercepteur pour ajouter le token à chaque requête
 api.interceptors.request.use(
   (config) => {
-    const token = authService.getToken();
+    const token = localStorage.getItem('auth_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
       console.log('🔐 Token envoyé à:', config.url);
@@ -76,42 +85,70 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Intercepteur pour gérer les erreurs et les 401
+// ✅ Intercepteur pour gérer les erreurs - CORRIGÉ
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // 🔐 Gestion spécifique des erreurs 401 (non autorisé)
+    // Gestion des timeouts - ne pas bloquer
+    if (error.code === 'ECONNABORTED') {
+      console.error('❌ Timeout - Le serveur met trop de temps à répondre');
+      // Retourner une erreur mais ne pas casser l'application
+      return Promise.reject(error);
+    }
+    
+    // Gestion des erreurs 401 (non autorisé)
     if (error.response?.status === 401) {
       console.error('🔐 Session expirée - Redirection vers login');
-      authService.logout();
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
       window.location.href = '/login';
       return Promise.reject(error);
     }
     
-    // Gestion des autres erreurs
-    if (error.code === 'ECONNABORTED') {
-      console.error('❌ Timeout - Le serveur ne répond pas');
-    } else if (!error.response) {
+    // Gestion des erreurs réseau
+    if (!error.response) {
       console.error('❌ Erreur réseau - Vérifie que le backend est lancé');
     } else {
       console.error('❌ Erreur API:', error.response.data);
     }
+    
     return Promise.reject(error);
   }
 );
 
-
 // Service pour les articles
 export const articleService = {
   getArticles: async (status?: string) => {
-    const params = status ? { status } : {};
-    const response = await api.get<ArticlesResponse>('/articles', { params });
-    return response.data;
+    const params = status ? { status, limit: 100 } : { limit: 100 };
+    console.log('📡 Appel API /articles avec params:', params);
+    try {
+      const response = await api.get<ArticlesResponse>('/articles', { params });
+      console.log('📡 Réponse reçue, articles:', response.data.data?.length);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erreur getArticles:', error);
+      return { success: false, count: 0, data: [] };
+    }
   },
 
   getPendingArticles: async () => {
-    const response = await api.get<ArticlesResponse>('/articles/pending');
-    return response.data;
+    try {
+      const response = await api.get<ArticlesResponse>('/articles/pending');
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erreur getPendingArticles:', error);
+      return { success: false, count: 0, data: [] };
+    }
+  },
+
+  getScheduledArticles: async () => {
+    try {
+      const response = await api.get<ArticlesResponse>('/articles/scheduled');
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erreur getScheduledArticles:', error);
+      return { success: false, count: 0, data: [] };
+    }
   },
 
   getArticleById: async (id: string) => {
@@ -129,6 +166,23 @@ export const articleService = {
     return response.data;
   },
 
+  schedulePublish: async (id: string, publishDate: Date) => {
+    const response = await api.post<ScheduleResponse>(`/articles/${id}/schedule`, { 
+      publishDate: publishDate.toISOString() 
+    });
+    return response.data;
+  },
+
+  cancelSchedule: async (id: string) => {
+    const response = await api.delete<ScheduleResponse>(`/articles/${id}/schedule`);
+    return response.data;
+  },
+
+  publishNow: async (id: string) => {
+    const response = await api.post<ArticleResponse>(`/articles/publish-now/${id}`);
+    return response.data;
+  },
+
   deleteArticle: async (id: string) => {
     const response = await api.delete(`/articles/${id}`);
     return response.data;
@@ -137,8 +191,21 @@ export const articleService = {
 
 export const statsService = {
   getStats: async () => {
-    const response = await api.get<StatsResponse>('/articles/stats');
-    return response.data;
+    try {
+      const response = await api.get<StatsResponse>('/articles/stats');
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erreur getStats:', error);
+      return { 
+        success: false, 
+        data: {
+          total: 0,
+          byStatus: { pending: 0, published: 0, rejected: 0, modified: 0 },
+          bySource: {},
+          lastScraped: null
+        }
+      };
+    }
   }
 };
 
@@ -162,3 +229,6 @@ export const uploadService = {
     return response.data;
   },
 };
+
+// Export par défaut pour la compatibilité
+export default api;

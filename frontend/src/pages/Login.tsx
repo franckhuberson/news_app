@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { Eye, EyeOff, Lock, Mail, X, Loader2, KeyRound } from 'lucide-react';
 import logo from '../assets/logo.png';
@@ -10,7 +9,7 @@ export const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+  const [rememberMe, setRememberMe] = useState(false); // ✅ Ajout
 
   // États pour la réinitialisation
   const [showResetModal, setShowResetModal] = useState(false);
@@ -24,19 +23,57 @@ export const Login: React.FC = () => {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // ✅ Charger les identifiants sauvegardés au chargement
+  useEffect(() => {
+    const savedEmail = localStorage.getItem('saved_email');
+    const savedPassword = localStorage.getItem('saved_password');
+    const savedRemember = localStorage.getItem('remember_me');
+    
+    if (savedRemember === 'true' && savedEmail) {
+      setEmail(savedEmail);
+      setPassword(savedPassword || '');
+      setRememberMe(true);
+    }
+  }, []);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
+      console.log('🔐 Tentative connexion:', email);
+      
       const response = await api.post('/auth/login', { email, password });
+      
+      console.log('📦 Réponse reçue:', response.data);
+      
       if (response.data.success) {
+        // ✅ Gestion du "Se souvenir de moi"
+        if (rememberMe) {
+          localStorage.setItem('saved_email', email);
+          localStorage.setItem('saved_password', password);
+          localStorage.setItem('remember_me', 'true');
+        } else {
+          localStorage.removeItem('saved_email');
+          localStorage.removeItem('saved_password');
+          localStorage.removeItem('remember_me');
+        }
+        
         localStorage.setItem('auth_token', response.data.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.data.user));
-        navigate('/admin');
+        
+        console.log('✅ Token stocké');
+        console.log('👤 Rôle:', response.data.data.user.role);
+        
+        // Redirection forcée
+        window.location.href = '/admin';
+      } else {
+        setError(response.data.message || 'Identifiants incorrects');
       }
     } catch (error: any) {
+      console.error('❌ Erreur détaillée:', error);
+      console.error('Réponse erreur:', error.response?.data);
       setError(error.response?.data?.message || 'Identifiants incorrects');
     } finally {
       setLoading(false);
@@ -83,7 +120,6 @@ export const Login: React.FC = () => {
     setMessage(null);
 
     try {
-      // Vérifier le code (sans changer le mot de passe)
       const response = await api.post('/auth/verify-code', { email: resetEmail, code: resetCode });
       
       if (response.data.success) {
@@ -196,7 +232,7 @@ export const Login: React.FC = () => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="w-full pl-10 pr-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:border-[#FF4500] focus:ring-1 focus:ring-[#FF4500] outline-none transition-colors dark:text-white"
-                      placeholder="admin@example.com"
+                      placeholder="admin@axio.com"
                       required
                     />
                   </div>
@@ -227,8 +263,14 @@ export const Login: React.FC = () => {
                 </div>
 
                 <div className="flex items-center justify-between">
+                  {/* ✅ Checkbox "Se souvenir de moi" corrigée */}
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" className="rounded border-gray-300 text-[#FF4500] focus:ring-[#FF4500]" />
+                    <input 
+                      type="checkbox" 
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="rounded border-gray-300 text-[#FF4500] focus:ring-[#FF4500]" 
+                    />
                     <span className="text-sm text-gray-600 dark:text-gray-400">Se souvenir de moi</span>
                   </label>
                   <button 

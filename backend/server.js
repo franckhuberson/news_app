@@ -1,14 +1,27 @@
+// ===========================================
+// 1. CORRECTION DNS (À placer TOUT EN PREMIER)
+// ===========================================
+const dns = require('dns');
+dns.setServers(['8.8.8.8', '1.1.1.1']);
+
+// ===========================================
+// 2. CHARGEMENT DE DOTENV
+// ===========================================
+require('dotenv').config();
+
+// ===========================================
+// 3. IMPORTS DES MODULES
+// ===========================================
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
-require('dotenv').config({ 
-    path: 'C:\\Users\\Franck Huberson\\Desktop\\news_app\\.env' 
-});
 const multer = require('multer');
 const { protect, admin } = require('./middleware/auth');
+const cron = require('node-cron');
+const cookieParser = require('cookie-parser'); // ✅ AJOUT pour lire les cookies
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -16,15 +29,29 @@ const PORT = process.env.PORT || 5000;
 // ===========================================
 // MIDDLEWARE
 // ===========================================
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:3000'],
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser()); // ✅ Pour lire les cookies du tracker
 
 // Middleware de logging
 app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
     next();
 });
+
+// ===========================================
+// MIDDLEWARE ET ROUTES VISITEURS
+// ===========================================
+const visitorTracker = require('./middleware/visitorTracker');
+const visitorRoutes = require('./routes/visitors');
+
+// Appliquer le tracker (après CORS, avant les routes)
+app.use(visitorTracker);
+app.use('/api/visitors', visitorRoutes);
 
 // ===========================================
 // CONNEXION MONGODB
@@ -41,11 +68,57 @@ console.log('🔄 Connexion à MongoDB...');
 mongoose.connect(MONGODB_URI)
 .then(() => {
     console.log('✅ Connecté à MongoDB avec succès !');
+    startScheduler();
 })
 .catch((error) => {
     console.error('❌ Erreur de connexion à MongoDB:', error.message);
     process.exit(1);
 });
+
+// ===========================================
+// SCHEDULER POUR PUBLICATION PROGRAMMÉE
+// ===========================================
+
+let schedulerRunning = false;
+
+function startScheduler() {
+    if (schedulerRunning) return;
+    schedulerRunning = true;
+    
+    console.log('📅 Scheduler de publication programmée démarré');
+    
+    const checkInterval = process.env.SCHEDULER_INTERVAL || '* * * * *';
+    
+    cron.schedule(checkInterval, async () => {
+        try {
+            const Article = require('./models/Article');
+            const now = new Date();
+            
+            const articlesToPublish = await Article.find({
+                isScheduled: true,
+                scheduledPublishDate: { $lte: now },
+                status: 'pending'
+            });
+            
+            if (articlesToPublish.length === 0) return;
+            
+            console.log(`📅 ${articlesToPublish.length} article(s) à publier programmé(s) à ${now.toLocaleString('fr-FR')}`);
+            
+            for (const article of articlesToPublish) {
+                try {
+                    await article.publish();
+                    console.log(`✅ Article publié automatiquement: ${article.title.substring(0, 50)}...`);
+                } catch (error) {
+                    console.error(`❌ Erreur publication auto pour ${article._id}:`, error.message);
+                }
+            }
+        } catch (error) {
+            console.error('❌ Erreur dans le scheduler:', error);
+        }
+    });
+    
+    console.log('✅ Scheduler configuré - Vérification toutes les minutes');
+}
 
 // ===========================================
 // ROUTES
@@ -86,32 +159,40 @@ app.use('/api/auth', authRoutes);
 app.use('/api/subscribers', subscriberRoutes);
 
 // ===========================================
-// ROUTE POUR LANCER LE SCRAPING (VERSION FINALE)
+// ROUTE POUR LANCER LE SCRAPING
 // ===========================================
 app.post('/api/scrape', (req, res) => {
     console.log('\n' + '='.repeat(50));
     console.log('🚀 Lancement du scraping...');
     console.log('='.repeat(50));
     
-    // Chemins avec guillemets pour gérer les espaces
-    const scraperDir = '"C:\\Users\\Franck Huberson\\Desktop\\news_app\\backend\\scraper"';
-    const pythonExe = '"C:\\Users\\Franck Huberson\\Desktop\\news_app\\backend\\scraper\\venv\\Scripts\\python.exe"';
-    const pythonScript = '"C:\\Users\\Franck Huberson\\Desktop\\news_app\\backend\\scraper\\scraper.py"';
+    const scraperDir = path.join(__dirname, 'scraper');
+    const pythonExe = path.join(scraperDir, 'venv', 'Scripts', 'python.exe');
+    const pythonScript = path.join(scraperDir, 'scraper.py');
     
     console.log('📁 Dossier scraper:', scraperDir);
     console.log('🐍 Python exe:', pythonExe);
     console.log('📜 Script:', pythonScript);
     
-    // Construire la commande avec les chemins protégés
-    const command = 'cmd.exe';
-    const args = ['/c', `cd ${scraperDir} && ${pythonExe} ${pythonScript}`];
+    if (!fs.existsSync(pythonExe)) {
+        console.error('❌ Python non trouvé:', pythonExe);
+        return res.status(500).json({ 
+            success: false, 
+            message: 'Environnement Python non trouvé. Exécutez d\'abord le scraper manuellement.' 
+        });
+    }
     
-    console.log('▶️ Commande complète:', command, args.join(' '));
+    if (!fs.existsSync(pythonScript)) {
+        console.error('❌ Script non trouvé:', pythonScript);
+        return res.status(500).json({ 
+            success: false, 
+            message: 'Script scraper.py non trouvé' 
+        });
+    }
     
-    const pythonProcess = spawn(command, args, {
-        cwd: __dirname,
-        shell: true,
-        windowsHide: true
+    const pythonProcess = spawn(pythonExe, [pythonScript], {
+        cwd: scraperDir,
+        env: { ...process.env, PYTHONUNBUFFERED: '1' }
     });
 
     let outputData = '';
@@ -160,18 +241,10 @@ app.post('/api/scrape', (req, res) => {
     });
 });
 
-
 // ===========================================
-// ROUTES D'AUTHENTIFICATION
-// ===========================================
-app.use('/api/auth', authRoutes);
-
-
-// ===========================================
-// ROUTES UPLOARDS
+// ROUTES UPLOADS
 // ===========================================
 
-// Configuration multer pour sauvegarder les images
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadDir = path.join(__dirname, 'uploads');
@@ -189,7 +262,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ 
   storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|gif|webp/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
@@ -202,8 +275,7 @@ const upload = multer({
   }
 });
 
-// Route pour uploader une image
-app.post('/api/upload', protect, admin, upload.single('image'), (req, res) => {
+app.post('/api/upload', protect, upload.single('image'), (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'Aucune image reçue' });
@@ -220,7 +292,6 @@ app.post('/api/upload', protect, admin, upload.single('image'), (req, res) => {
   }
 });
 
-// Servir les images statiquement
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ===========================================
@@ -254,13 +325,18 @@ app.listen(PORT, () => {
     console.log(`   - GET  /api/db-status`);
     console.log(`   - GET  /api/articles`);
     console.log(`   - GET  /api/articles/pending`);
+    console.log(`   - GET  /api/articles/scheduled`);
     console.log(`   - GET  /api/articles/stats`);
     console.log(`   - GET  /api/articles/:id`);
     console.log(`   - PUT  /api/articles/:id`);
     console.log(`   - PATCH /api/articles/:id/status`);
     console.log(`   - DELETE /api/articles/:id`);
+    console.log(`   - POST /api/articles/:id/schedule`);
+    console.log(`   - DELETE /api/articles/:id/schedule`);
+    console.log(`   - POST /api/articles/publish-now/:id`);
     console.log(`   - POST /api/scrape`);
     console.log(`   - POST /api/auth/register`);
     console.log(`   - POST /api/auth/login`);
     console.log(`   - GET  /api/auth/profile`);
+    console.log(`   - GET  /api/visitors/stats`);
 });

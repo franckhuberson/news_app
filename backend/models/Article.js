@@ -1,108 +1,93 @@
 const mongoose = require('mongoose');
 
-// Schéma adapté à ta base existante "newspulse"
 const articleSchema = new mongoose.Schema({
-    // Correspond à "titre" dans ta base
-    title: {
-        type: String,
-        required: true
-    },
+    title: { type: String, required: true },
+    originalContent: { type: String, required: true },
+    summary: { type: String, default: '' },
+    imageUrl: { type: String, default: '' },
+    source: { type: String, default: 'Abidjan.net' },
     
-    // Correspond à "texte" dans ta base
-    originalContent: {
-        type: String,
-        required: true
-    },
+    // ✅ SUPPRIMER "unique: true" pour éviter l'index automatique
+    sourceUrl: { type: String, required: true },
+    // ⚠️ PAS de unique: true ici
     
-    // Correspond à "résumé" dans ta base
-    summary: {
-        type: String,
-        default: ''
-    },
-    
-    // Correspond à "URL_de_l_image" dans ta base
-    imageUrl: {
-        type: String,
-        default: ''
-    },
-    
-    // Correspond à la source (à déduire de l'URL ou à ajouter)
-    source: {
-        type: String,
-        default: 'Abidjan.net'  // Valeur par défaut
-    },
-    
-    // Correspond à "URL" dans ta base
-    sourceUrl: {
-        type: String,
-        required: true,
-        unique: true  // Important pour éviter les doublons
-    },
-    
-    // Correspond à "statut" dans ta base
     status: {
         type: String,
-        enum: ['brouillon', 'pending', 'modified', 'published', 'rejected'],
+        enum: ['brouillon', 'pending', 'modified', 'published', 'rejected', 'scheduled'],
         default: 'brouillon'
     },
-
-    // Correspond à "catégorie" dans ta base
-    categorie: {
-        type: String,
-        default: ''
-    },
-    
-    // Correspond à "créé_à" dans ta base
-    scrapedAt: {
-        type: Date,
-        default: Date.now
-    },
-    
-    publishedAt: {
-        type: Date,
-        default: null
-    },
-    
-    modifiedBy: {
-        type: String,
-        default: null
-    },
-    
+    categorie: { type: String, default: '' },
+    scrapedAt: { type: Date, default: Date.now },
+    publishedAt: { type: Date, default: null },
+    modifiedBy: { type: String, default: null },
     modifications: [{
         field: String,
         oldValue: String,
         newValue: String,
         modifiedAt: { type: Date, default: Date.now }
     }],
-    
     metadata: {
         authors: [String],
         keywords: [String],
         publishDate: Date,
         wordCount: Number
-    }
+    },
+    scheduledPublishDate: { type: Date, default: null },
+    isScheduled: { type: Boolean, default: false },
+    scheduledBy: { type: String, default: null },
+    scheduledAt: { type: Date, default: null }
 }, {
-    timestamps: true,  // Ajoute createdAt et updatedAt automatiquement
-    collection: 'articles'  // IMPORTANT: Nom de ta collection existante
+    timestamps: true,
+    collection: 'articles'
 });
 
-// Index pour recherche rapide
+// ✅ Créer manuellement l'index unique (une seule fois)
 articleSchema.index({ status: 1, scrapedAt: -1 });
-articleSchema.index({ sourceUrl: 1 });
+articleSchema.index({ sourceUrl: 1 }, { unique: true }); // ← unique ici
+articleSchema.index({ isScheduled: 1, scheduledPublishDate: 1, status: 1 });
 
 // Méthodes
 articleSchema.methods.publish = function() {
     this.status = 'published';
     this.publishedAt = new Date();
+    this.isScheduled = false;
+    this.scheduledPublishDate = null;
     return this.save();
 };
 
 articleSchema.methods.reject = function() {
     this.status = 'rejected';
+    this.isScheduled = false;
+    this.scheduledPublishDate = null;
     return this.save();
 };
 
-// Statistiques
+articleSchema.methods.schedulePublish = function(publishDate, userId) {
+    this.status = 'pending';
+    this.isScheduled = true;
+    this.scheduledPublishDate = new Date(publishDate);
+    this.scheduledBy = userId;
+    this.scheduledAt = new Date();
+    return this.save();
+};
+
+articleSchema.methods.cancelSchedule = function() {
+    this.isScheduled = false;
+    this.scheduledPublishDate = null;
+    this.scheduledBy = null;
+    this.scheduledAt = null;
+    return this.save();
+};
+
+articleSchema.statics.getPendingScheduledArticles = function() {
+    const now = new Date();
+    return this.find({
+        isScheduled: true,
+        scheduledPublishDate: { $lte: now },
+        status: { $in: ['pending', 'scheduled'] }
+    });
+};
+
 articleSchema.statics.countByStatus = function() {
     return this.aggregate([
         { $group: { _id: '$status', count: { $sum: 1 } } }

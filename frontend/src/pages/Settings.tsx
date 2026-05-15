@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { 
-  Newspaper, User, Bell, Globe, Mail, Users, Eye, EyeOff, 
+  Newspaper, User, Mail, Users, Eye, EyeOff, 
   Trash2, UserPlus, Shield, Lock, KeyRound, X, Loader2
 } from 'lucide-react';
 import { api } from '../services/api';
@@ -22,7 +22,7 @@ interface Admin {
 }
 
 export const Settings: React.FC = () => {
-  const [saving, setSaving] = useState(false);
+  const [] = useState(false);
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [loadingSubscribers, setLoadingSubscribers] = useState(false);
   const [showSubscribers, setShowSubscribers] = useState(false);
@@ -289,7 +289,7 @@ export const Settings: React.FC = () => {
                 <div>
                   <h2 className="text-xl font-bold">Abonnés à la newsletter</h2>
                   <p className="text-sm text-gray-500">
-                    {subscribers.length > 0 ? `${subscribers.length} abonnés` : 'Aucun abonné pour le moment'}
+                    {subscribers.length > 0 ? `${subscribers.length} abonnés` : 'Aucun abonné pour le moment***'}
                   </p>
                 </div>
               </div>
@@ -307,7 +307,7 @@ export const Settings: React.FC = () => {
                 ) : subscribers.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     <Mail size={40} className="mx-auto mb-3 text-gray-300" />
-                    <p>Aucun abonné pour le moment</p>
+                    <p>***</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -446,7 +446,7 @@ export const Settings: React.FC = () => {
                 ) : admins.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     <Shield size={40} className="mx-auto mb-3 text-gray-300" />
-                    <p>Aucun administrateur</p>
+                    <p>***</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -493,60 +493,6 @@ export const Settings: React.FC = () => {
             >
               <Lock size={14} />
               Changer le mot de passe
-            </button>
-          </div>
-
-          {/* Notifications */}
-          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <Bell size={20} /> Notifications
-            </h2>
-            <label className="flex items-center justify-between cursor-pointer py-2">
-              <span className="text-gray-700 dark:text-gray-300">Notifications par email</span>
-              <input type="checkbox" defaultChecked className="w-4 h-4 accent-[#FF4500]" />
-            </label>
-            <label className="flex items-center justify-between cursor-pointer py-2">
-              <span className="text-gray-700 dark:text-gray-300">Alerte nouvelle publication</span>
-              <input type="checkbox" defaultChecked className="w-4 h-4 accent-[#FF4500]" />
-            </label>
-          </div>
-
-          {/* Préférences */}
-          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <Globe size={20} /> Préférences
-            </h2>
-            <div className="mb-3">
-              <label className="block mb-1 text-gray-700 dark:text-gray-300">Langue</label>
-              <select className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
-                <option value="fr">Français</option>
-                <option value="en">English</option>
-              </select>
-            </div>
-            <div>
-              <label className="block mb-1 text-gray-700 dark:text-gray-300">Thème</label>
-              <select className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
-                <option value="system">Système</option>
-                <option value="light">Clair</option>
-                <option value="dark">Sombre</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Bouton sauvegarder */}
-          <div className="flex justify-end">
-            <button
-              onClick={() => {
-                setSaving(true);
-                setTimeout(() => {
-                  alert('Paramètres sauvegardés !');
-                  setSaving(false);
-                }, 1000);
-              }}
-              disabled={saving}
-              className="px-6 py-2 bg-[#FF4500] text-white rounded-lg hover:bg-[#E03D00] transition-all disabled:opacity-50"
-            >
-              {saving ? 'Sauvegarde...' : 'Sauvegarder'}
             </button>
           </div>
         </div>
