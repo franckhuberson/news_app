@@ -269,7 +269,7 @@ export const Home: React.FC = () => {
                   ) : (
                     <div className="w-full h-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-400">Pas d'image</div>
                   )}
-                  <span className="absolute top-4 left-4 bg-[#FF4500] text-white text-[10px] font-black uppercase px-2 py-1 tracking-tighter">{article.source || "INFO"}</span>
+                  <span className="absolute top-4 left-4 bg-[#FF4500] text-white text-[10px] font-black uppercase px-2 py-1 tracking-tighter">Axio News</span>
                 </div>
                 <div className="p-6 flex flex-col flex-1">
                   <div className="flex items-center gap-2 mb-3 text-[10px] font-bold uppercase tracking-widest text-gray-400">

@@ -214,7 +214,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
           items={rejectedCategories}
         />
 
-        {/* ✅ ARTICLES PROGRAMMÉS (NOUVEAU - avant STATISTIQUES) */}
+        {/* ARTICLES PROGRAMMÉS */}
         <div
           onClick={() => handleNavigation('/admin/articles/scheduled')}
           className={`

@@ -8,9 +8,9 @@ export interface Article {
   imageUrl?: string;
   source: string;
   sourceUrl: string;
-  status: 'pending' | 'published' | 'rejected' | 'modified' | 'scheduled';  // ✅ Ajout de 'scheduled'
-  scheduledPublishDate?: string;  // ✅ Ajout
-  isScheduled?: boolean;          // ✅ Ajout
+  status: 'pending' | 'published' | 'rejected' | 'modified' | 'scheduled';  
+  scheduledPublishDate?: string;  
+  isScheduled?: boolean;          
   scrapedAt: string;
   publishedAt?: string;
   modifiedBy?: string;

@@ -7,9 +7,9 @@ const articleSchema = new mongoose.Schema({
     imageUrl: { type: String, default: '' },
     source: { type: String, default: 'Abidjan.net' },
     
-    // ✅ SUPPRIMER "unique: true" pour éviter l'index automatique
+    // SUPPRIMER "unique: true" pour éviter l'index automatique
     sourceUrl: { type: String, required: true },
-    // ⚠️ PAS de unique: true ici
+    // PAS de unique: true ici
     
     status: {
         type: String,
@@ -41,7 +41,7 @@ const articleSchema = new mongoose.Schema({
     collection: 'articles'
 });
 
-// ✅ Créer manuellement l'index unique (une seule fois)
+// Créer manuellement l'index unique (une seule fois)
 articleSchema.index({ status: 1, scrapedAt: -1 });
 articleSchema.index({ sourceUrl: 1 }, { unique: true }); // ← unique ici
 articleSchema.index({ isScheduled: 1, scheduledPublishDate: 1, status: 1 });
