@@ -9,6 +9,12 @@ const { protect, admin } = require('../middleware/auth');
 const JWT_SECRET = process.env.JWT_SECRET || 'votre_clé_secrète_temporaire_changez_ça';
 
 // ===========================================
+// STOCKAGE TEMPORAIRE POUR LES CODES
+// ===========================================
+const resetCodes = new Map();
+const adminCreationCodes = new Map();
+
+// ===========================================
 // CONFIGURATION API SOCIAL MEDIA
 // ===========================================
 const FACEBOOK_PAGE_ID = process.env.FACEBOOK_PAGE_ID || '';
@@ -199,7 +205,7 @@ router.post('/share-multiple/:articleId', protect, async (req, res) => {
 });
 
 // ===========================================
-// INSCRIPTION (TOUS LES UTILISATEURS SONT ADMIN)
+// INSCRIPTION
 // ===========================================
 router.post('/register', async (req, res) => {
   try {
@@ -217,7 +223,6 @@ router.post('/register', async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // ✅ TOUS LES NOUVEAUX UTILISATEURS SONT ADMIN
     const user = new User({
       name,
       email,
@@ -250,7 +255,7 @@ router.post('/register', async (req, res) => {
 });
 
 // ===========================================
-// CONNEXION (FORCE LE RÔLE ADMIN)
+// CONNEXION
 // ===========================================
 router.post('/login', async (req, res) => {
   try {
@@ -276,9 +281,8 @@ router.post('/login', async (req, res) => {
 
     console.log('✅ Connexion réussie:', email);
 
-    // ✅ FORCER LE RÔLE ADMIN DANS LE TOKEN
     const token = jwt.sign(
-      { id: user._id, email: user.email, role: 'admin' },
+      { id: user._id, email: user.email, role: user.role },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -287,7 +291,7 @@ router.post('/login', async (req, res) => {
       success: true,
       message: 'Connexion réussie',
       data: {
-        user: { id: user._id, name: user.name, email: user.email, role: 'admin' },
+        user: { id: user._id, name: user.name, email: user.email, role: user.role },
         token
       }
     });
@@ -306,13 +310,11 @@ router.post('/logout', (req, res) => {
 });
 
 // ===========================================
-// PROFIL (FORCE LE RÔLE ADMIN)
+// PROFIL
 // ===========================================
 router.get('/profile', protect, async (req, res) => {
   try {
-    const user = req.user.toObject();
-    user.role = 'admin';
-    res.json({ success: true, data: user });
+    res.json({ success: true, data: req.user });
   } catch (error) {
     console.error('Erreur profile:', error);
     res.status(500).json({ success: false, message: 'Erreur serveur' });
@@ -320,20 +322,20 @@ router.get('/profile', protect, async (req, res) => {
 });
 
 // ===========================================
-// RÉCUPÉRER TOUS LES UTILISATEURS
+// RÉCUPÉRER TOUS LES ADMINISTRATEURS
 // ===========================================
 router.get('/admins', protect, async (req, res) => {
   try {
     const users = await User.find().select('-password');
     res.json({ success: true, data: users });
   } catch (error) {
-    console.error('Erreur récupération users:', error);
+    console.error('Erreur récupération admins:', error);
     res.status(500).json({ success: false, message: 'Erreur serveur' });
   }
 });
 
 // ===========================================
-// SUPPRIMER UN UTILISATEUR
+// SUPPRIMER UN ADMINISTRATEUR
 // ===========================================
 router.delete('/admins/:id', protect, async (req, res) => {
   try {
@@ -341,10 +343,15 @@ router.delete('/admins/:id', protect, async (req, res) => {
     if (!userToDelete) {
       return res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
     }
+    
+    if (userToDelete.email === 'admin@axio.com') {
+      return res.status(400).json({ success: false, message: 'Impossible de supprimer l\'administrateur principal' });
+    }
+    
     await User.findByIdAndDelete(req.params.id);
-    res.json({ success: true, message: 'Utilisateur supprimé' });
+    res.json({ success: true, message: 'Administrateur supprimé' });
   } catch (error) {
-    console.error('Erreur suppression user:', error);
+    console.error('Erreur suppression admin:', error);
     res.status(500).json({ success: false, message: 'Erreur serveur' });
   }
 });
@@ -393,7 +400,6 @@ router.post('/change-password', protect, async (req, res) => {
 // MOT DE PASSE OUBLIÉ
 // ===========================================
 const { sendResetCodeEmail, generateCode } = require('../utils/emailService');
-const resetCodes = new Map();
 
 router.post('/forgot-password', async (req, res) => {
   try {
@@ -538,6 +544,105 @@ router.post('/reset-password', async (req, res) => {
     
   } catch (error) {
     console.error('❌ Erreur reset-password:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
+});
+
+// ===========================================
+// CRÉATION D'ADMIN AVEC CODE DE VÉRIFICATION (VERSION AVEC ENVOI EMAIL)
+// ===========================================
+
+router.post('/request-admin-code', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    console.log('📧 Demande de code admin pour:', email);
+
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email requis' });
+    }
+    
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ success: false, message: 'Cet email est déjà utilisé' });
+    }
+    
+    const code = Math.floor(10000000 + Math.random() * 90000000).toString();
+    
+    adminCreationCodes.set(email, {
+      code,
+      expiresAt: Date.now() + 15 * 60 * 1000
+    });
+    
+    console.log(`🔐 CODE ADMIN POUR ${email}: ${code}`);
+    
+    // Envoi de l'email
+    const { sendAdminCodeEmail } = require('../utils/emailService');
+    const emailSent = await sendAdminCodeEmail(email, code);
+    
+    if (emailSent) {
+      res.json({
+        success: true,
+        message: 'Un code de confirmation a été envoyé à votre adresse email'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'Erreur lors de l\'envoi de l\'email. Vérifiez la configuration Gmail.'
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ Erreur request-admin-code:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
+});
+
+router.post('/verify-admin-code', async (req, res) => {
+  try {
+    const { email, code, name, password } = req.body;
+    
+    console.log('🔍 Vérification code admin pour:', email);
+    console.log('📝 Code reçu:', code);
+    
+    const storedData = adminCreationCodes.get(email);
+    
+    if (!storedData) {
+      return res.status(400).json({ success: false, message: 'Aucune demande trouvée' });
+    }
+    
+    if (storedData.expiresAt < Date.now()) {
+      adminCreationCodes.delete(email);
+      return res.status(400).json({ success: false, message: 'Code expiré' });
+    }
+    
+    if (storedData.code !== code) {
+      return res.status(400).json({ success: false, message: 'Code invalide' });
+    }
+    
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+    
+    const user = new User({
+      name,
+      email,
+      password: hashedPassword,
+      role: 'admin'
+    });
+    
+    await user.save();
+    
+    adminCreationCodes.delete(email);
+    
+    console.log('✅ Admin créé avec succès:', email);
+    
+    res.json({
+      success: true,
+      message: 'Administrateur créé avec succès'
+    });
+    
+  } catch (error) {
+    console.error('❌ Erreur verify-admin-code:', error);
     res.status(500).json({ success: false, message: 'Erreur serveur' });
   }
 });

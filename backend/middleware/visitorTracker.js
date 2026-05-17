@@ -4,34 +4,21 @@ const crypto = require('crypto');
 // Exclure TOUTES les routes API et admin
 const EXCLUDED_PATHS = [
   '/admin',
-  '/api/admin',
-  '/api/auth',
-  '/api/login',
-  '/api/register',
-  '/api/visitors',
-  '/api/articles/stats',
-  '/api/articles/scheduled',
-  '/api/articles/pending',
-  '/api/scrape',
-  '/api/upload',
-  '/api/subscribers',
+  '/api',
   '/login',
-  '/logout'
+  '/logout',
+  '/uploads'
 ];
 
-const hashIp = (ip) => {
-  return crypto.createHash('sha256').update(ip + (process.env.JWT_SECRET || 'secret')).digest('hex').substring(0, 32);
-};
-
 const visitorTracker = async (req, res, next) => {
-  // ✅ Exclure toutes les routes API et admin
+  // ✅ Exclure toutes les routes qui commencent par /api ou /admin
   const isExcluded = EXCLUDED_PATHS.some(path => req.path.startsWith(path));
   
   if (isExcluded) {
     return next();
   }
   
-  // ✅ Exclure les requêtes qui ne sont pas des pages HTML
+  // ✅ Ne tracker que les pages HTML (pas les fichiers statiques)
   const acceptHeader = req.headers.accept || '';
   const isPageRequest = acceptHeader.includes('text/html') || req.path === '/';
   
@@ -52,15 +39,12 @@ const visitorTracker = async (req, res, next) => {
       });
     }
 
-    const ip = req.ip || req.connection?.remoteAddress || req.socket?.remoteAddress || 'unknown';
-    const ipHash = hashIp(ip);
-
     const existingToday = await Visitor.findOne({
       date: today,
       sessionId: sessionId
     });
 
-    const pagePath = req.path === '/' ? '/accueil' : req.path;
+    const pagePath = req.path === '/' ? '/' : req.path;
 
     if (existingToday) {
       const pageExists = existingToday.pages.some(p => p.path === pagePath);
@@ -73,15 +57,13 @@ const visitorTracker = async (req, res, next) => {
         date: today,
         count: 1,
         sessionId: sessionId,
-        ipHash: ipHash,
-        userAgent: req.headers['user-agent']?.substring(0, 500),
-        referrer: req.headers.referer || 'direct',
         pages: [{ path: pagePath, timestamp: new Date() }]
       });
+      console.log(`👤 Nouveau visiteur: ${pagePath}`);
     }
 
   } catch (error) {
-    console.error('❌ Erreur tracking visiteur:', error);
+    console.error('❌ Erreur tracking:', error);
   }
   
   next();

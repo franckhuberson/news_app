@@ -289,7 +289,7 @@ export const Settings: React.FC = () => {
                 <div>
                   <h2 className="text-xl font-bold">Abonnés à la newsletter</h2>
                   <p className="text-sm text-gray-500">
-                    {subscribers.length > 0 ? `${subscribers.length} abonnés` : 'Aucun abonné pour le moment***'}
+                    {subscribers.length > 0 ? `${subscribers.length} abonnés` : '***'}
                   </p>
                 </div>
               </div>
@@ -362,7 +362,7 @@ export const Settings: React.FC = () => {
                 <div>
                   <h2 className="text-xl font-bold">Administrateurs</h2>
                   <p className="text-sm text-gray-500">
-                    {admins.length > 0 ? `${admins.length} administrateur${admins.length > 1 ? 's' : ''}` : 'Aucun administrateur'}
+                    {admins.length > 0 ? `${admins.length} administrateur${admins.length > 1 ? 's' : ''}` : '***'}
                   </p>
                 </div>
               </div>
