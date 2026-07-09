@@ -46,18 +46,16 @@ router.get('/subscribers', protect, admin, async (req, res) => {
   }
 });
 
-// Route admin pour désabonner un utilisateur
+// ✅ Route admin pour SUPPRIMER DÉFINITIVEMENT un abonné
 router.delete('/subscribers/:id', protect, admin, async (req, res) => {
   try {
-    const subscriber = await Subscriber.findById(req.params.id);
+    const subscriber = await Subscriber.findByIdAndDelete(req.params.id);
     if (!subscriber) {
       return res.status(404).json({ success: false, message: 'Abonné non trouvé' });
     }
-    subscriber.status = 'unsubscribed';
-    await subscriber.save();
-    res.json({ success: true, message: 'Désabonnement réussi' });
+    res.json({ success: true, message: 'Abonné supprimé définitivement' });
   } catch (error) {
-    console.error('Erreur désabonnement:', error);
+    console.error('Erreur suppression:', error);
     res.status(500).json({ success: false, message: 'Erreur serveur' });
   }
 });

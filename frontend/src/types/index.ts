@@ -1,6 +1,7 @@
 // frontend/src/types/index.ts
 
 export interface Article {
+  sections: boolean;
   _id: string;
   title: string;
   originalContent?: string;
@@ -52,7 +53,7 @@ export interface Stats {
   };
   bySource: Record<string, number>;
   lastScraped: string | null;
-  scheduledCount?: number;  // ✅ Ajout
+  scheduledCount?: number;
 }
 
 export interface ApiResponse<T> {

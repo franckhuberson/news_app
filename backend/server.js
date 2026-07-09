@@ -97,7 +97,7 @@ function startScheduler() {
             const articlesToPublish = await Article.find({
                 isScheduled: true,
                 scheduledPublishDate: { $lte: now },
-                status: 'pending'
+                status: { $in: ['pending', 'scheduled'] }
             });
             
             if (articlesToPublish.length === 0) return;

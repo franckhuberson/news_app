@@ -20,15 +20,18 @@ const visitorTracker = async (req, res, next) => {
 
     console.log('🟢 Session:', sessionId);
 
-    const existingVisitor = await Visitor.findOne({
+    // ✅ RECHERCHER LE VISITEUR DU JOUR
+    let visitor = await Visitor.findOne({
       date: today,
       sessionId
     });
 
-    if (!existingVisitor) {
-      await Visitor.create({
+    if (!visitor) {
+      // ✅ CRÉER UN NOUVEAU VISITEUR
+      visitor = await Visitor.create({
         date: today,
         sessionId,
+        count: 1,
         pages: [
           {
             path: req.originalUrl,
@@ -36,10 +39,26 @@ const visitorTracker = async (req, res, next) => {
           }
         ]
       });
-
       console.log('✅ Nouveau visiteur enregistré');
     } else {
-      console.log('⏭️ Déjà enregistré aujourd’hui');
+      // ✅ METTRE À JOUR LE COMPTEUR ET LES PAGES
+      visitor.count += 1;
+      
+      // Ajouter la page seulement si elle est différente de la dernière
+      const lastPage = visitor.pages[visitor.pages.length - 1];
+      if (!lastPage || lastPage.path !== req.originalUrl) {
+        visitor.pages.push({
+          path: req.originalUrl,
+          timestamp: new Date()
+        });
+        console.log(`📄 Page ajoutée: ${req.originalUrl}`);
+      } else {
+        // Mettre à jour le timestamp de la dernière page
+        lastPage.timestamp = new Date();
+      }
+      
+      await visitor.save();
+      console.log('⏭️ Visiteur mis à jour');
     }
 
     next();

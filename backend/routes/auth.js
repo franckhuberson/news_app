@@ -6,6 +6,9 @@ const User = require('../models/User');
 const Article = require('../models/Article');
 const { protect, admin } = require('../middleware/auth');
 
+// ✅ IMPORT COMPLET DE EMAIL SERVICE
+const { sendResetCodeEmail, generateCode, sendAdminCodeEmail } = require('../utils/emailService');
+
 const JWT_SECRET = process.env.JWT_SECRET || 'votre_clé_secrète_temporaire_changez_ça';
 
 // ===========================================
@@ -399,8 +402,6 @@ router.post('/change-password', protect, async (req, res) => {
 // ===========================================
 // MOT DE PASSE OUBLIÉ
 // ===========================================
-const { sendResetCodeEmail, generateCode } = require('../utils/emailService');
-
 router.post('/forgot-password', async (req, res) => {
   try {
     const { email } = req.body;
@@ -549,9 +550,10 @@ router.post('/reset-password', async (req, res) => {
 });
 
 // ===========================================
-// CRÉATION D'ADMIN AVEC CODE DE VÉRIFICATION (VERSION AVEC ENVOI EMAIL)
+// ✅ CRÉATION D'ADMIN AVEC CODE DE VÉRIFICATION
 // ===========================================
 
+// Route pour demander un code
 router.post('/request-admin-code', async (req, res) => {
   try {
     const { email } = req.body;
@@ -567,7 +569,7 @@ router.post('/request-admin-code', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Cet email est déjà utilisé' });
     }
     
-    const code = Math.floor(10000000 + Math.random() * 90000000).toString();
+    const code = generateCode(); // ✅ Utilisation de generateCode
     
     adminCreationCodes.set(email, {
       code,
@@ -576,8 +578,7 @@ router.post('/request-admin-code', async (req, res) => {
     
     console.log(`🔐 CODE ADMIN POUR ${email}: ${code}`);
     
-    // Envoi de l'email
-    const { sendAdminCodeEmail } = require('../utils/emailService');
+    // ✅ Utilisation de sendAdminCodeEmail importé
     const emailSent = await sendAdminCodeEmail(email, code);
     
     if (emailSent) {
@@ -598,6 +599,7 @@ router.post('/request-admin-code', async (req, res) => {
   }
 });
 
+// Route pour vérifier le code et créer l'admin
 router.post('/verify-admin-code', async (req, res) => {
   try {
     const { email, code, name, password } = req.body;

@@ -2,13 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
-import { Newspaper, LogOut, Users, Mail, Trash2, Eye, Activity } from 'lucide-react';
+import { Newspaper, LogOut, Users, Mail, Trash2, Eye, Activity, TrendingUp, MousePointer } from 'lucide-react';
 
 interface Subscriber {
   _id: string;
   email: string;
   subscribedAt: string;
-  status: string;
+  // ✅ status supprimé
 }
 
 interface DailyVisitorData {
@@ -43,7 +43,6 @@ export const Stats: React.FC = () => {
   const [visitorStats, setVisitorStats] = useState<VisitorStats | null>(null);
   const [loadingVisitors, setLoadingVisitors] = useState(false);
   const [period, setPeriod] = useState<'7d' | '30d' | '90d'>('30d');
-  const [] = useState<'visits' | 'pageViews'>('visits');
 
   const handleLogout = () => {
     localStorage.removeItem('auth_token');
@@ -114,14 +113,10 @@ export const Stats: React.FC = () => {
     }
   };
 
-
-  // ✅ CORRECTION : Calcul des statistiques avec gestion des valeurs undefined/null
   const totalVisits = visitorStats?.summary?.totalVisits ?? 0;
-  const todayVisits = visitorStats?.daily && visitorStats.daily.length > 0 
-    ? visitorStats.daily[visitorStats.daily.length - 1]?.visits ?? 0 
-    : 0;
-  
-  // ✅ Utiliser la valeur du backend ou notre calcul (avec vérification de sécurité)
+  const totalPageViews = visitorStats?.summary?.totalPageViews ?? 0;
+  const avgVisitsPerDay = visitorStats?.summary?.avgVisitsPerDay ?? 0;
+  const totalUniqueVisitors = visitorStats?.summary?.totalUniqueVisitors ?? 0;
 
   return (
     <DashboardLayout>
@@ -156,32 +151,32 @@ export const Stats: React.FC = () => {
           <>
             {/* ===== STATISTIQUES VISITEURS ===== */}
             <div className="mb-8">
-              <div className="flex justify-between items-center mb-6">
+              <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
                 <h2 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3">
                   <Activity size={24} className="text-primary-500" />
                   Fréquentation du site
                 </h2>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <button
                     onClick={() => setPeriod('7d')}
-                    className={`px-3 py-1 text-xs font-bold uppercase rounded-lg transition-colors ${
-                      period === '7d' ? 'bg-primary-500 text-white' : 'bg-gray-100 text-gray-600'
+                    className={`px-4 py-2 text-xs font-bold uppercase rounded-lg transition-colors ${
+                      period === '7d' ? 'bg-primary-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200'
                     }`}
                   >
                     7 jours
                   </button>
                   <button
                     onClick={() => setPeriod('30d')}
-                    className={`px-3 py-1 text-xs font-bold uppercase rounded-lg transition-colors ${
-                      period === '30d' ? 'bg-primary-500 text-white' : 'bg-gray-100 text-gray-600'
+                    className={`px-4 py-2 text-xs font-bold uppercase rounded-lg transition-colors ${
+                      period === '30d' ? 'bg-primary-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200'
                     }`}
                   >
                     30 jours
                   </button>
                   <button
                     onClick={() => setPeriod('90d')}
-                    className={`px-3 py-1 text-xs font-bold uppercase rounded-lg transition-colors ${
-                      period === '90d' ? 'bg-primary-500 text-white' : 'bg-gray-100 text-gray-600'
+                    className={`px-4 py-2 text-xs font-bold uppercase rounded-lg transition-colors ${
+                      period === '90d' ? 'bg-primary-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200'
                     }`}
                   >
                     90 jours
@@ -196,84 +191,123 @@ export const Stats: React.FC = () => {
               ) : visitorStats ? (
                 <>
                   {/* CARTES STATISTIQUES */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                    <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow border border-gray-200">
-                      <div className="text-3xl font-bold text-primary-500">{totalVisits}</div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                    <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow border border-gray-200 dark:border-gray-800">
+                      <div className="flex items-center justify-between">
+                        <div className="text-3xl font-bold text-primary-500">{totalVisits}</div>
+                        <div className="p-2 bg-primary-500/10 rounded-lg">
+                          <MousePointer size={20} className="text-primary-500" />
+                        </div>
+                      </div>
                       <div className="text-sm text-gray-500 mt-1">Visites totales</div>
                     </div>
-                    <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow border border-gray-200">
-                      <div className="text-3xl font-bold text-blue-500">{todayVisits}</div>
-                      <div className="text-sm text-gray-500 mt-1">Visiteurs aujourd'hui</div>
+
+                    <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow border border-gray-200 dark:border-gray-800">
+                      <div className="flex items-center justify-between">
+                        <div className="text-3xl font-bold text-blue-500">{totalUniqueVisitors}</div>
+                        <div className="p-2 bg-blue-500/10 rounded-lg">
+                          <Users size={20} className="text-blue-500" />
+                        </div>
+                      </div>
+                      <div className="text-sm text-gray-500 mt-1">Visiteurs uniques</div>
+                    </div>
+
+                    <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow border border-gray-200 dark:border-gray-800">
+                      <div className="flex items-center justify-between">
+                        <div className="text-3xl font-bold text-green-500">{Math.round(avgVisitsPerDay)}</div>
+                        <div className="p-2 bg-green-500/10 rounded-lg">
+                          <TrendingUp size={20} className="text-green-500" />
+                        </div>
+                      </div>
+                      <div className="text-sm text-gray-500 mt-1">Visites par jour</div>
+                    </div>
+
+                    <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow border border-gray-200 dark:border-gray-800">
+                      <div className="flex items-center justify-between">
+                        <div className="text-3xl font-bold text-purple-500">{totalPageViews}</div>
+                        <div className="p-2 bg-purple-500/10 rounded-lg">
+                          <Eye size={20} className="text-purple-500" />
+                        </div>
+                      </div>
+                      <div className="text-sm text-gray-500 mt-1">Pages vues</div>
                     </div>
                   </div>
-                  
+
+                  {/* ✅ SECTION ABONNÉS - SANS COLONNE STATUT */}
+                  <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden mb-8">
+                    <div onClick={handleShowSubscribers} className="p-6 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary-500/10 rounded-lg">
+                          <Users size={24} className="text-primary-500" />
+                        </div>
+                        <div>
+                          <h2 className="text-xl font-bold">Abonnés à la newsletter</h2>
+                          <p className="text-sm text-gray-500">
+                            {subscribers.length > 0 ? `${subscribers.length} abonnés` : 'Aucun abonné'}
+                          </p>
+                        </div>
+                      </div>
+                      <Eye size={20} className={`text-primary-500 transition-transform ${showSubscribers ? 'rotate-180' : ''}`} />
+                    </div>
+
+                    {showSubscribers && (
+                      <div className="border-t border-gray-200 dark:border-gray-800 p-6">
+                        {loadingSubscribers ? (
+                          <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div></div>
+                        ) : subscribers.length === 0 ? (
+                          <div className="text-center py-8 text-gray-500">
+                            <Mail size={40} className="mx-auto mb-3 text-gray-300" />
+                            <p>Aucun abonné</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="grid grid-cols-12 gap-3 pb-3 border-b border-gray-200 dark:border-gray-700 text-xs font-bold text-gray-500 uppercase">
+                              <div className="col-span-7">Email</div>
+                              <div className="col-span-4">Date d'abonnement</div>
+                              <div className="col-span-1">Action</div>
+                            </div>
+                            {subscribers.map((sub) => (
+                              <div key={sub._id} className="grid grid-cols-12 gap-3 py-3 border-b border-gray-100 dark:border-gray-800 items-center">
+                                <div className="col-span-7 text-sm truncate font-medium text-gray-700 dark:text-gray-300">{sub.email}</div>
+                                <div className="col-span-4 text-xs text-gray-500">{new Date(sub.subscribedAt).toLocaleDateString('fr-FR')}</div>
+                                <div className="col-span-1">
+                                  <button onClick={() => handleDeleteSubscriber(sub._id)} className="text-red-500 hover:text-red-700 transition-colors">
+                                    <Trash2 size={16} />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ARTICLES STATS */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow border border-gray-200 dark:border-gray-800">
+                      <div className="text-3xl font-bold text-primary-500">{stats?.total || 0}</div>
+                      <div className="text-sm text-gray-500 mt-1">Total articles</div>
+                    </div>
+                    <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow border border-gray-200 dark:border-gray-800">
+                      <div className="text-3xl font-bold text-orange-500">{stats?.byStatus?.pending || 0}</div>
+                      <div className="text-sm text-gray-500 mt-1">En attente</div>
+                    </div>
+                    <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow border border-gray-200 dark:border-gray-800">
+                      <div className="text-3xl font-bold text-green-500">{stats?.byStatus?.published || 0}</div>
+                      <div className="text-sm text-gray-500 mt-1">Publiés</div>
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-gray-400">
+                    Dernier scraping: {stats?.lastScraped ? new Date(stats.lastScraped).toLocaleString('fr-FR') : 'Jamais'}
+                  </div>
                 </>
               ) : (
-                <div className="text-center py-12 bg-white rounded-xl border">
-                  <p className="text-gray-500">Aucune donnée de visite pour le moment</p>
-                  <p className="text-xs text-gray-400 mt-2">Les statistiques seront disponibles après les premières visites</p>
+                <div className="text-center py-12 text-gray-500">
+                  Aucune statistique de fréquentation disponible.
                 </div>
               )}
-            </div>
-
-            {/* SECTION ABONNÉS */}
-            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 overflow-hidden mb-8">
-              <div onClick={handleShowSubscribers} className="p-6 cursor-pointer hover:bg-gray-50 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-primary-500/10 rounded-lg">
-                    <Users size={24} className="text-primary-500" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold">Abonnés à la newsletter</h2>
-                    <p className="text-sm text-gray-500">
-                      {subscribers.length > 0 ? `${subscribers.length} abonnés` : 'Aucun abonné'}
-                    </p>
-                  </div>
-                </div>
-                <Eye size={20} className={`text-primary-500 transition-transform ${showSubscribers ? 'rotate-180' : ''}`} />
-              </div>
-
-              {showSubscribers && (
-                <div className="border-t p-6">
-                  {loadingSubscribers ? (
-                    <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div></div>
-                  ) : subscribers.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500"><Mail size={40} className="mx-auto mb-3 text-gray-300" /><p>Aucun abonné</p></div>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="grid grid-cols-12 gap-3 pb-3 border-b text-xs font-bold text-gray-500 uppercase">
-                        <div className="col-span-6">Email</div>
-                        <div className="col-span-3">Date</div>
-                        <div className="col-span-2">Statut</div>
-                        <div className="col-span-1">Action</div>
-                      </div>
-                      {subscribers.map((sub) => (
-                        <div key={sub._id} className="grid grid-cols-12 gap-3 py-3 border-b items-center">
-                          <div className="col-span-6 text-sm truncate">{sub.email}</div>
-                          <div className="col-span-3 text-xs text-gray-500">{new Date(sub.subscribedAt).toLocaleDateString('fr-FR')}</div>
-                          <div className="col-span-2"><span className={`px-2 py-1 text-xs rounded-full ${sub.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100'}`}>{sub.status === 'active' ? 'Actif' : 'Désabonné'}</span></div>
-                          <div className="col-span-1"><button onClick={() => handleDeleteSubscriber(sub._id)} className="text-red-500 hover:text-red-700"><Trash2 size={16} /></button></div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Sources */}
-            <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow border">
-              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">📰 Sources des articles</h2>
-              {stats?.bySource && Object.entries(stats.bySource).map(([source, count]) => (
-                <div key={source} className="flex justify-between py-2 border-b">
-                  <span className="text-gray-600">{source}</span>
-                  <span className="font-bold text-primary-500">{count as number}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-6 text-sm text-gray-500">
-              Dernier scraping: {stats?.lastScraped ? new Date(stats.lastScraped).toLocaleString('fr-FR') : 'Jamais'}
             </div>
           </>
         )}

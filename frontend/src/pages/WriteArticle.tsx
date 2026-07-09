@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PenTool, Save, Eye, ArrowLeft, Clock, Image as ImageIcon, Upload, X, ChevronDown, FileText, Plus, Trash2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 // Types pour les sections
 type SectionType = 'subtitle' | 'paragraph' | 'image' | 'video';
@@ -14,6 +14,7 @@ interface Section {
 interface ArticleData {
   title: string;
   sections: Section[];
+  summary: string;
   imageUrl: string;
   source: string;
   sourceUrl: string;
@@ -29,9 +30,16 @@ interface ArticleData {
   scheduledPublishDate?: Date;
 }
 
+// ✅ URL de base de l'API
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
 export const WriteArticle: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const editingArticle = location.state?.article;
+  
   const [title, setTitle] = useState('');
+  const [summary, setSummary] = useState('');
   const [sections, setSections] = useState<Section[]>([]);
   const [category, setCategory] = useState('');
   const [imageUrl, setImageUrl] = useState('');
@@ -45,6 +53,32 @@ export const WriteArticle: React.FC = () => {
   const [isScheduled, setIsScheduled] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadingSectionImage, setUploadingSectionImage] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+
+  // ✅ Charger les données de l'article si on est en mode édition
+  useEffect(() => {
+    if (editingArticle) {
+      console.log('📝 Chargement de l\'article pour édition:', editingArticle);
+      setIsEditing(true);
+      
+      setTitle(editingArticle.title || '');
+      setCategory(editingArticle.categorie || '');
+      setImageUrl(editingArticle.imageUrl || '');
+      setSummary(editingArticle.summary || '');
+      
+      // Si l'article a des sections, les charger
+      if (editingArticle.sections && editingArticle.sections.length > 0) {
+        setSections(editingArticle.sections);
+      } else if (editingArticle.originalContent) {
+        // Si pas de sections mais un contenu original, on le met dans un paragraphe
+        setSections([{
+          id: Date.now().toString(),
+          type: 'paragraph',
+          content: editingArticle.originalContent
+        }]);
+      }
+    }
+  }, [editingArticle]);
 
   const categories = [
     { value: 'Politique', label: 'POLITIQUE' },
@@ -93,6 +127,21 @@ export const WriteArticle: React.FC = () => {
     setSections(newSections);
   };
 
+  // 🔹 Extraire l'ID d'une vidéo YouTube
+  const extractYouTubeId = (url: string): string | null => {
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&?]+)/,
+      /youtube\.com\/embed\/([^/?]+)/,
+      /youtube\.com\/v\/([^/?]+)/
+    ];
+    
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match) return match[1];
+    }
+    return null;
+  };
+
   // 🔹 Upload d'image pour une section
   const handleSectionImageUpload = async (sectionId: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -104,7 +153,7 @@ export const WriteArticle: React.FC = () => {
       const formData = new FormData();
       formData.append('image', file);
       
-      const response = await fetch('/api/upload', {
+      const response = await fetch(`${API_BASE_URL}/upload`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
@@ -124,6 +173,7 @@ export const WriteArticle: React.FC = () => {
     }
   };
 
+  // 🔹 Upload de l'image principale
   const handleMainImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -136,7 +186,7 @@ export const WriteArticle: React.FC = () => {
       const formData = new FormData();
       formData.append('image', file);
       
-      const response = await fetch('/api/upload', {
+      const response = await fetch(`${API_BASE_URL}/upload`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
@@ -173,17 +223,43 @@ export const WriteArticle: React.FC = () => {
       .join('\n\n');
   };
 
-  // 🔹 Générer un résumé
-  const generateSummary = (): string => {
-    const text = sections
-      .filter(s => s.type === 'paragraph')
-      .map(s => s.content)
-      .join(' ');
-    
-    if (!text) return '';
-    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 30);
-    const summaryText = sentences.slice(0, 3).join('. ');
-    return summaryText.length > 500 ? summaryText.substring(0, 500) + '...' : summaryText + '.';
+  // 🔹 Rendu d'une section en prévisualisation
+  const renderSectionPreview = (section: Section) => {
+    switch (section.type) {
+      case 'subtitle':
+        return <h2 className="text-2xl font-black uppercase mt-8 mb-4">{section.content || '(Sous-titre)'}</h2>;
+      case 'paragraph':
+        return <p className="text-gray-700 dark:text-gray-300 leading-relaxed text-lg mb-6">{section.content || '(Paragraphe)'}</p>;
+      case 'image':
+        return section.content ? (
+          <div className="my-6 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+            <img src={section.content} alt="Image" className="w-full h-auto max-h-96 object-cover" />
+          </div>
+        ) : (
+          <div className="my-6 p-12 border-2 border-dashed border-gray-300 rounded-lg text-center text-gray-400">Image</div>
+        );
+      case 'video':
+        if (section.content) {
+          const videoId = extractYouTubeId(section.content);
+          if (videoId) {
+            return (
+              <div className="my-6 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+                <iframe
+                  src={`https://www.youtube.com/embed/${videoId}`}
+                  title="Vidéo YouTube"
+                  className="w-full aspect-video"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            );
+          }
+          return <div className="my-6 p-12 bg-gray-100 dark:bg-gray-800 rounded-lg text-center text-gray-500 border-2 border-dashed border-gray-300">🎬 Lien vidéo invalide</div>;
+        }
+        return <div className="my-6 p-12 bg-gray-100 dark:bg-gray-800 rounded-lg text-center text-gray-500 border-2 border-dashed border-gray-300">🎬 {section.content || 'Lien vidéo'}</div>;
+      default:
+        return null;
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -201,7 +277,6 @@ export const WriteArticle: React.FC = () => {
       }
 
       const fullContent = getFullContent();
-      const summary = generateSummary();
       
       let scheduledPublishDate: Date | undefined = undefined;
       let finalStatus = 'published';
@@ -214,6 +289,7 @@ export const WriteArticle: React.FC = () => {
       const articleData: ArticleData = {
         title: title,
         sections: sections,
+        summary: summary || '',
         imageUrl: imageUrl || '',
         source: 'Amaya News',
         sourceUrl: `https://amaya-news.com/article/${Date.now()}`,
@@ -232,16 +308,21 @@ export const WriteArticle: React.FC = () => {
         articleData.scheduledPublishDate = scheduledPublishDate;
       }
       
-      const response = await fetch('/api/articles', {
-        method: 'POST',
+      // ✅ Déterminer l'URL et la méthode
+      const url = isEditing && editingArticle?._id 
+        ? `${API_BASE_URL}/articles/${editingArticle._id}` 
+        : `${API_BASE_URL}/articles`;
+      const method = isEditing && editingArticle?._id ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method: method,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           ...articleData,
-          originalContent: fullContent,
-          summary: summary
+          originalContent: fullContent
         })
       });
       
@@ -264,26 +345,6 @@ export const WriteArticle: React.FC = () => {
     }
   };
 
-  // 🔹 Rendu d'une section en prévisualisation
-  const renderSectionPreview = (section: Section) => {
-    switch (section.type) {
-      case 'subtitle':
-        return <h2 className="text-2xl font-black uppercase mt-8 mb-4">{section.content || '(Sous-titre)'}</h2>;
-      case 'paragraph':
-        return <p className="text-gray-700 dark:text-gray-300 leading-relaxed text-lg mb-6">{section.content || '(Paragraphe)'}</p>;
-      case 'image':
-        return section.content ? (
-          <div className="my-6 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-            <img src={section.content} alt="Image" className="w-full h-auto max-h-96 object-cover" />
-          </div>
-        ) : <div className="my-6 p-12 border-2 border-dashed border-gray-300 rounded-lg text-center text-gray-400">Image</div>;
-      case 'video':
-        return <div className="my-6 p-12 bg-gray-100 dark:bg-gray-800 rounded-lg text-center text-gray-500 border-2 border-dashed border-gray-300">🎬 {section.content || 'Lien vidéo'}</div>;
-      default:
-        return null;
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* En-tête */}
@@ -302,7 +363,7 @@ export const WriteArticle: React.FC = () => {
                   <ArrowLeft size={24} />
                 </button>
                 <h1 className="text-4xl font-black uppercase tracking-tighter dark:text-white italic">
-                  Rédiger un <span className="text-primary-500">Article</span>
+                  {isEditing ? 'Modifier' : 'Rédiger un'} <span className="text-primary-500">Article</span>
                 </h1>
               </div>
             </div>
@@ -318,7 +379,7 @@ export const WriteArticle: React.FC = () => {
                 disabled={loading}
                 className="px-6 py-3 bg-black dark:bg-white text-white dark:text-black text-[11px] font-black uppercase tracking-widest hover:bg-primary-500 transition-all disabled:opacity-50 flex items-center gap-2"
               >
-                <Save size={16} /> {loading ? 'Publication...' : (isScheduled ? 'Programmer' : 'Publier')}
+                <Save size={16} /> {loading ? (isEditing ? 'Mise à jour...' : 'Publication...') : (isScheduled ? 'Programmer' : (isEditing ? 'Mettre à jour' : 'Publier'))}
               </button>
             </div>
           </div>
@@ -365,6 +426,18 @@ export const WriteArticle: React.FC = () => {
               </div>
             </div>
             <div className="p-8 md:p-12">
+              {/* ✅ SECTION RÉSUMÉ EN PRÉVISUALISATION */}
+              {summary && (
+                <div className="mb-8 pb-8 border-b border-gray-200 dark:border-gray-800">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-gray-500 mb-3">
+                    📝 Résumé
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400 text-xl leading-relaxed italic border-l-4 border-primary-500 pl-6">
+                    {summary}
+                  </p>
+                </div>
+              )}
+
               {sections.length === 0 ? (
                 <div className="text-center py-16 text-gray-400">
                   <p className="text-sm font-black uppercase tracking-widest">Aucun contenu rédigé</p>
@@ -400,6 +473,18 @@ export const WriteArticle: React.FC = () => {
                     className="w-full px-4 py-3 text-lg font-bold bg-gray-50 dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-lg focus:border-primary-500 focus:outline-none transition-colors"
                     required
                   />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">RÉSUMÉ DE L'ARTICLE</label>
+                  <textarea
+                    value={summary}
+                    onChange={(e) => setSummary(e.target.value)}
+                    placeholder="Résumé concis de l'article (2-3 phrases)..."
+                    rows={3}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-lg focus:border-primary-500 focus:outline-none resize-vertical text-sm leading-relaxed"
+                  />
+                  <p className="text-[9px] text-gray-400 mt-1">Le résumé apparaîtra en tête de l'article et dans les aperçus.</p>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -475,7 +560,6 @@ export const WriteArticle: React.FC = () => {
                             <span className="ml-2 text-gray-300">#{index + 1}</span>
                           </span>
                         </div>
-                        {/* ✅ Boutons TOUJOURS VISIBLES */}
                         <div className="flex items-center gap-1">
                           <button 
                             type="button"
