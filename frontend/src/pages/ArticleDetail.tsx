@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { Menu, X, ArrowLeft } from 'lucide-react';
@@ -20,8 +20,11 @@ interface Article {
   };
 }
 
-// 🔹 Extraire l'ID d'une vidéo YouTube
+// 🔹 Extraire l'ID d'une vidéo YouTube (CORRIGÉ)
 const extractYouTubeId = (url: string): string | null => {
+  // ✅ Nettoyer l'URL
+  const cleanUrl = url.trim();
+  
   const patterns = [
     /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&?]+)/,
     /youtube\.com\/embed\/([^/?]+)/,
@@ -29,91 +32,100 @@ const extractYouTubeId = (url: string): string | null => {
   ];
   
   for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match) return match[1];
+    const match = cleanUrl.match(pattern);
+    if (match) {
+      console.log('🎬 ID extrait:', match[1]);
+      return match[1];
+    }
   }
+  
+  console.log('❌ Aucun ID trouvé pour:', cleanUrl);
   return null;
 };
 
 // 🔹 Parser le contenu Markdown
-const parseContent = (content: string) => {
-  if (!content) return [];
-  
-  const lines = content.split('\n');
-  const elements: React.ReactNode[] = [];
-  
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
+const useParseContent = () => {
+  return useCallback((content: string) => {
+    if (!content) return [];
     
-    if (!line) continue;
+    const lines = content.split('\n');
+    const elements: React.ReactNode[] = [];
     
-    // ✅ Image (format: ![Image](url))
-    const imageMatch = line.match(/!\[Image\]\(([^)]+)\)/);
-    if (imageMatch) {
-      const url = imageMatch[1];
-      elements.push(
-        <div key={`image-${i}`} className="my-6 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-          <img 
-            src={url} 
-            alt="Image de l'article" 
-            className="w-full h-auto max-h-125 object-cover"
-            onError={(e) => (e.target as HTMLImageElement).style.display = 'none'}
-          />
-        </div>
-      );
-      continue;
-    }
-    
-    // ✅ Vidéo (format: [Vidéo: url])
-    const videoMatch = line.match(/\[Vidéo:\s*([^\]]+)\]/);
-    if (videoMatch) {
-      const url = videoMatch[1].trim();
-      const videoId = extractYouTubeId(url);
-      if (videoId) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      if (!line) continue;
+      
+      // ✅ Image (format: ![Image](url))
+      const imageMatch = line.match(/!\[Image\]\(([^)]+)\)/);
+      if (imageMatch) {
+        const url = imageMatch[1];
         elements.push(
-          <div key={`video-${i}`} className="my-6 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-            <iframe
-              src={`https://www.youtube.com/embed/${videoId}`}
-              title="Vidéo YouTube"
-              className="w-full aspect-video"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
+          <div key={`image-${i}`} className="my-6 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+            <img 
+              src={url} 
+              alt="Image de l'article" 
+              loading="lazy"
+              className="w-full h-auto max-h-125 object-cover"
+              onError={(e) => (e.target as HTMLImageElement).style.display = 'none'}
             />
           </div>
         );
-      } else {
-        elements.push(
-          <div key={`video-${i}`} className="my-6 p-6 bg-gray-100 dark:bg-gray-800 rounded-xl text-center text-gray-500 border-2 border-dashed border-gray-300">
-            🎬 Lien vidéo invalide
-          </div>
-        );
+        continue;
       }
-      continue;
-    }
-    
-    // ✅ Sous-titre (format: ## texte) - SANS UPPERCASE
-    const subtitleMatch = line.match(/^##\s+(.+)/);
-    if (subtitleMatch) {
+      
+      // ✅ Vidéo (format: [Vidéo: url])
+      const videoMatch = line.match(/\[Vidéo:\s*([^\]]+)\]/);
+      if (videoMatch) {
+        const url = videoMatch[1].trim();
+        const videoId = extractYouTubeId(url);
+        if (videoId) {
+          elements.push(
+            <div key={`video-${i}`} className="my-6 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+              <iframe
+                src={`https://www.youtube.com/embed/${videoId}`}
+                title="Vidéo YouTube"
+                className="w-full aspect-video"
+                loading="lazy"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          );
+        } else {
+          elements.push(
+            <div key={`video-${i}`} className="my-6 p-6 bg-gray-100 dark:bg-gray-800 rounded-xl text-center text-gray-500 border-2 border-dashed border-gray-300">
+              🎬 Lien vidéo invalide: {url}
+            </div>
+          );
+        }
+        continue;
+      }
+      
+      // ✅ Sous-titre (format: ## texte)
+      const subtitleMatch = line.match(/^##\s+(.+)/);
+      if (subtitleMatch) {
+        elements.push(
+          <h2 key={`subtitle-${i}`} className="text-2xl md:text-3xl font-black mt-10 mb-4 dark:text-white leading-tight">
+            {subtitleMatch[1]}
+          </h2>
+        );
+        continue;
+      }
+      
+      // ✅ Paragraphe normal
+      if (line === '---') continue;
+      if (line.startsWith('Source :') || line.startsWith('Source:')) continue;
+      
       elements.push(
-        <h2 key={`subtitle-${i}`} className="text-2xl md:text-3xl font-black mt-10 mb-4 dark:text-white leading-tight">
-          {subtitleMatch[1]}
-        </h2>
+        <p key={`paragraph-${i}`} className="text-gray-700 dark:text-gray-300 leading-relaxed text-lg mb-6">
+          {line}
+        </p>
       );
-      continue;
     }
     
-    // ✅ Paragraphe normal
-    if (line === '---') continue;
-    if (line.startsWith('Source :') || line.startsWith('Source:')) continue;
-    
-    elements.push(
-      <p key={`paragraph-${i}`} className="text-gray-700 dark:text-gray-300 leading-relaxed text-lg mb-6">
-        {line}
-      </p>
-    );
-  }
-  
-  return elements;
+    return elements;
+  }, []);
 };
 
 export const ArticleDetail: React.FC = () => {
@@ -124,6 +136,8 @@ export const ArticleDetail: React.FC = () => {
   const [loadingSuggestions, setLoadingSuggestions] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  
+  const parseContent = useParseContent();
 
   // Détection de la taille d'écran
   useEffect(() => {
@@ -135,14 +149,40 @@ export const ArticleDetail: React.FC = () => {
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
+  // Chargement avec cache
   useEffect(() => {
     const fetchArticle = async () => {
+      setLoading(true);
       try {
-        const response = await api.get(`/articles/${id}`);
-        setArticle(response.data.data);
+        // Vérifier le cache
+        const cacheKey = `article_${id}`;
+        const cached = localStorage.getItem(cacheKey);
+        const cacheTime = localStorage.getItem(`${cacheKey}_time`);
         
-        if (response.data.data) {
-          await fetchSuggestions(response.data.data);
+        if (cached && cacheTime) {
+          const age = Date.now() - parseInt(cacheTime);
+          if (age < 5 * 60 * 1000) {
+            const data = JSON.parse(cached);
+            setArticle(data);
+            if (data) {
+              await fetchSuggestions(data);
+            }
+            setLoading(false);
+            return;
+          }
+        }
+        
+        // Charger depuis l'API
+        const response = await api.get(`/articles/${id}`);
+        const data = response.data.data;
+        setArticle(data);
+        
+        // Mettre en cache
+        localStorage.setItem(cacheKey, JSON.stringify(data));
+        localStorage.setItem(`${cacheKey}_time`, Date.now().toString());
+        
+        if (data) {
+          await fetchSuggestions(data);
         }
       } catch (error) {
         console.error('Erreur chargement article:', error);
@@ -153,11 +193,25 @@ export const ArticleDetail: React.FC = () => {
     fetchArticle();
   }, [id]);
 
-  // 🔹 Récupérer les articles suggérés (6 articles)
-  const fetchSuggestions = async (currentArticle: Article) => {
+  // Récupérer les articles suggérés (6 articles)
+  const fetchSuggestions = useCallback(async (currentArticle: Article) => {
     setLoadingSuggestions(true);
     try {
       const category = currentArticle.categorie || '';
+      
+      // Vérifier le cache des suggestions
+      const cacheKey = `suggestions_${category}_${currentArticle._id}`;
+      const cached = localStorage.getItem(cacheKey);
+      const cacheTime = localStorage.getItem(`${cacheKey}_time`);
+      
+      if (cached && cacheTime) {
+        const age = Date.now() - parseInt(cacheTime);
+        if (age < 5 * 60 * 1000) {
+          setSuggestedArticles(JSON.parse(cached));
+          setLoadingSuggestions(false);
+          return;
+        }
+      }
       
       // 1️⃣ Articles de la même catégorie
       let categoryResponse = await api.get(`/articles?status=published&categorie=${category}&limit=12`);
@@ -176,9 +230,15 @@ export const ArticleDetail: React.FC = () => {
             merged.push(recent);
           }
         }
-        setSuggestedArticles(merged.slice(0, 6));
+        const results = merged.slice(0, 6);
+        setSuggestedArticles(results);
+        localStorage.setItem(cacheKey, JSON.stringify(results));
+        localStorage.setItem(`${cacheKey}_time`, Date.now().toString());
       } else {
-        setSuggestedArticles(filtered.slice(0, 6));
+        const results = filtered.slice(0, 6);
+        setSuggestedArticles(results);
+        localStorage.setItem(cacheKey, JSON.stringify(results));
+        localStorage.setItem(`${cacheKey}_time`, Date.now().toString());
       }
       
     } catch (error) {
@@ -187,7 +247,7 @@ export const ArticleDetail: React.FC = () => {
     } finally {
       setLoadingSuggestions(false);
     }
-  };
+  }, []);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -199,6 +259,11 @@ export const ArticleDetail: React.FC = () => {
   };
 
   const categories = ['Politique', 'Santé', 'Tech', 'Économie', 'Culture', 'Sports', 'Buzz', 'Emploi'];
+
+  // Mémoriser le contenu parsé avec useMemo
+  const contentElements = useMemo(() => {
+    return article?.originalContent ? parseContent(article.originalContent) : [];
+  }, [article?.originalContent, parseContent]);
 
   if (loading) {
     return (
@@ -226,8 +291,6 @@ export const ArticleDetail: React.FC = () => {
       </div>
     );
   }
-
-  const contentElements = article.originalContent ? parseContent(article.originalContent) : [];
 
   return (
     <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900">
@@ -260,7 +323,7 @@ export const ArticleDetail: React.FC = () => {
             )}
           </div>
 
-          {/* ✅ CATÉGORIES AVEC PARAMÈTRE URL */}
+          {/* CATÉGORIES AVEC PARAMÈTRE URL */}
           {!isMobile && (
             <nav className="hidden md:flex items-center justify-center gap-4 lg:gap-6 flex-wrap mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
               <Link to="/" className="text-[10px] lg:text-xs font-bold uppercase tracking-widest transition-colors whitespace-nowrap text-gray-600 dark:text-gray-400 hover:text-primary-500">TOUS</Link>
@@ -289,7 +352,12 @@ export const ArticleDetail: React.FC = () => {
           
           {article.imageUrl && (
             <div className="relative w-full h-72 md:h-96 overflow-hidden">
-              <img src={article.imageUrl} alt={article.title} className="w-full h-full object-cover" />
+              <img 
+                src={article.imageUrl} 
+                alt={article.title} 
+                loading="lazy"
+                className="w-full h-full object-cover" 
+              />
               <div className="absolute inset-0 bg-linear-to-t from-black/50 to-transparent"></div>
               <div className="absolute bottom-4 left-4 flex items-center gap-2">
                 <span className="bg-primary-500 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-lg">Amaya News</span>
@@ -299,7 +367,9 @@ export const ArticleDetail: React.FC = () => {
           )}
 
           <div className="p-6 md:p-10">
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-black uppercase tracking-tighter leading-tight mb-6 dark:text-white">{article.title}</h1>
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-black uppercase tracking-tighter leading-tight mb-6 dark:text-white">
+              {article.title}
+            </h1>
 
             <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mb-8 pb-8 border-b border-gray-200 dark:border-gray-800">
               <span className="flex items-center gap-2">
@@ -337,9 +407,7 @@ export const ArticleDetail: React.FC = () => {
           </div>
         </article>
 
-        {/* ============================================ */}
-        {/*  SUGGESTIONS DE LECTURE - FORMAT ULTRA COMPACT */}
-        {/* ============================================ */}
+        {/* SUGGESTIONS DE LECTURE */}
         {suggestedArticles.length > 0 && (
           <section className="mt-10">
             <div className="flex items-center gap-3 mb-4">
@@ -363,12 +431,12 @@ export const ArticleDetail: React.FC = () => {
                     to={`/article/${suggested._id}`}
                     className="group block bg-white dark:bg-gray-900 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-800 hover:shadow-md transition-all duration-200 hover:border-primary-500"
                   >
-                    {/* Image - très petite */}
                     <div className="relative h-20 overflow-hidden bg-gray-100 dark:bg-gray-800">
                       {suggested.imageUrl ? (
                         <img 
                           src={suggested.imageUrl} 
                           alt={suggested.title} 
+                          loading="lazy"
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                       ) : (
@@ -381,7 +449,6 @@ export const ArticleDetail: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Contenu - ultra compact */}
                     <div className="p-1.5">
                       <h3 className="font-black text-[9px] uppercase leading-tight line-clamp-2 group-hover:text-primary-500 transition-colors dark:text-white min-h-5.5">
                         {suggested.title}

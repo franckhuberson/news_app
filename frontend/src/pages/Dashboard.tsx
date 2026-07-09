@@ -211,14 +211,14 @@ export const Dashboard: React.FC = () => {
                       {/* ✅ Bouton Lire l'article */}
                       <button 
                         onClick={() => handleReadArticle(article)} 
-                        className="flex-1 py-3 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+                        className="flex-1 py-3 bg-black dark:bg-white dark:text-black text-white text-[10px] font-black uppercase tracking-widest hover:bg-primary-500 transition-all shadow-md flex items-center justify-center gap-2"
                       >
                         <Eye size={14} /> Lire l'article
                       </button>
                       {/* ✅ Bouton Écarter */}
                       <button 
                         onClick={() => handleReject(article._id)} 
-                        className="flex-1 py-3 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-red-700 transition-all flex items-center justify-center gap-2"
+                        className="flex-1 py-3 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-red-700 transition-all shadow-md flex items-center justify-center gap-2"
                       >
                         <XCircle size={16} /> Écarter
                       </button>

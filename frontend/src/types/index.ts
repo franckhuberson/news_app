@@ -1,7 +1,13 @@
 // frontend/src/types/index.ts
 
+export interface Section {
+  id: string;
+  type: 'subtitle' | 'paragraph' | 'image' | 'video';
+  content: string;
+}
+
 export interface Article {
-  sections: boolean;
+  sections?: Section[];
   _id: string;
   title: string;
   originalContent?: string;

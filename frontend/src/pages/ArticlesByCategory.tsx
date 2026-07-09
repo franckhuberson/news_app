@@ -334,12 +334,12 @@ export const ArticlesByCategory: React.FC = () => {
                       
                       {/* Zone des boutons */}
                       <div className="mt-auto pt-4 border-t border-gray-100 dark:border-gray-800">
-                        {/* ✅ CAS 1: ARTICLES EN ATTENTE - 2 boutons : Lire + Écarter */}
+                        {/* CAS 1: ARTICLES EN ATTENTE - 2 boutons : Lire + Écarter */}
                         {buttons.showPublish && buttons.showReject && buttons.showEdit && buttons.showDelete && (
                           <div className="flex gap-2">
                             <button 
                               onClick={() => setReadingArticle(article)} 
-                              className="flex-1 py-3 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+                              className="flex-1 py-3 bg-black dark:bg-white dark:text-black text-white text-[10px] font-black uppercase tracking-widest hover:bg-primary-500 transition-all shadow-md flex items-center justify-center gap-2"
                             >
                               <Eye size={14} /> Lire l'article
                             </button>
@@ -357,7 +357,7 @@ export const ArticlesByCategory: React.FC = () => {
                           <div className="grid grid-cols-2 gap-3">
                             <button 
                               onClick={() => setEditingArticle(article)} 
-                              className="py-3 bg-blue-600 text-white text-[11px] font-black uppercase tracking-wider rounded-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+                              className="flex-1 py-3 bg-black dark:bg-white dark:text-black text-white text-[10px] font-black uppercase tracking-widest hover:bg-primary-500 transition-all shadow-md flex items-center justify-center gap-2"
                             >
                               <Edit3 size={16} /> Modifier
                             </button>

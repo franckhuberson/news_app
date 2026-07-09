@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { api } from '../services/api';
 import maison from '../assets/maison.png';
@@ -26,19 +26,28 @@ export const Home: React.FC = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
-  // ✅ États pour le modal des conditions
+  // États pour le modal des conditions
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [, setTermsAccepted] = useState(false);
   const [termsChecked, setTermsChecked] = useState(false);
   
-  // ✅ État pour le formulaire d'abonnement
+  // État pour le formulaire d'abonnement
   const [email, setEmail] = useState('');
   const [subscribing, setSubscribing] = useState(false);
   const [subscribeMessage, setSubscribeMessage] = useState<{text: string, type: 'success' | 'error'} | null>(null);
 
   const categories = ['Politique', 'Santé', 'Tech', 'Économie', 'Culture', 'Sports', 'Buzz', 'Emploi'];
 
-  // ✅ Vérifier si les conditions ont déjà été acceptées
+  // ✅ 1. Mise en cache des articles
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
   useEffect(() => {
     const consent = document.cookie.split('; ').find(row => row.startsWith('terms_accepted='));
     if (!consent) {
@@ -50,20 +59,30 @@ export const Home: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => {
-    const checkScreenSize = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
-    return () => window.removeEventListener('resize', checkScreenSize);
-  }, []);
-
+  // ✅ 2. Chargement optimisé avec cache
   useEffect(() => {
     const fetchArticles = async () => {
       setLoading(true);
       try {
-        const response = await api.get('/articles?status=published');
+        // ✅ Vérifier le cache
+        const cached = localStorage.getItem('articles_cache');
+        const cacheTime = localStorage.getItem('articles_cache_time');
+        
+        // ✅ Cache valide pendant 5 minutes
+        if (cached && cacheTime) {
+          const age = Date.now() - parseInt(cacheTime);
+          if (age < 5 * 60 * 1000) {
+            const data = JSON.parse(cached);
+            setArticles(data);
+            setFilteredArticles(data);
+            setLoading(false);
+            console.log('📦 Articles chargés depuis le cache');
+            return;
+          }
+        }
+        
+        // ✅ Charger depuis l'API avec limite
+        const response = await api.get('/articles?status=published&limit=50');
         let articlesData = response.data.data || [];
         
         const sortedArticles = [...articlesData].sort((a, b) => {
@@ -71,6 +90,10 @@ export const Home: React.FC = () => {
           const dateB = new Date(b.publishedAt || b.scrapedAt || b.createdAt || 0).getTime();
           return dateB - dateA;
         });
+        
+        // ✅ Mettre en cache
+        localStorage.setItem('articles_cache', JSON.stringify(sortedArticles));
+        localStorage.setItem('articles_cache_time', Date.now().toString());
         
         setArticles(sortedArticles);
         setFilteredArticles(sortedArticles);
@@ -84,6 +107,7 @@ export const Home: React.FC = () => {
     fetchArticles();
   }, []);
 
+  // ✅ 3. Filtrage par catégorie optimisé avec useMemo
   useEffect(() => {
     if (articles.length === 0) return;
     
@@ -105,7 +129,8 @@ export const Home: React.FC = () => {
     }
   }, [location.search, articles]);
 
-  const handleSearch = (query: string) => {
+  // ✅ 4. Recherche optimisée avec useCallback
+  const handleSearch = useCallback((query: string) => {
     setSearchQuery(query);
     if (!query.trim()) {
       if (activeCategory === 'all') {
@@ -132,9 +157,10 @@ export const Home: React.FC = () => {
       article.categorie?.toLowerCase().includes(searchLower)
     );
     setFilteredArticles(results);
-  };
+  }, [articles, activeCategory]);
 
-  const filterArticlesByCategory = (category: string) => {
+  // ✅ 5. Filtrage par catégorie optimisé avec useCallback
+  const filterArticlesByCategory = useCallback((category: string) => {
     setActiveCategory(category);
     setMobileMenuOpen(false);
     setSearchQuery('');
@@ -147,7 +173,7 @@ export const Home: React.FC = () => {
       );
       setFilteredArticles(filtered);
     }
-  };
+  }, [articles]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -158,7 +184,11 @@ export const Home: React.FC = () => {
     });
   };
 
-  // ✅ Gestion de l'acceptation des conditions
+  // ✅ 6. Optimisation du tri avec useMemo
+  const latestArticles = useMemo(() => {
+    return filteredArticles.slice(0, 3);
+  }, [filteredArticles]);
+
   const handleAcceptTerms = () => {
     if (!termsChecked) {
       const alertElement = document.getElementById('termsAlert');
@@ -178,14 +208,12 @@ export const Home: React.FC = () => {
     setShowTermsModal(false);
   };
 
-  // ✅ Refuser les conditions
   const handleDeclineTerms = () => {
     if (confirm('Vous devez accepter les conditions d\'utilisation pour continuer à utiliser Amaya News. Souhaitez-vous quitter le site ?')) {
       window.location.href = 'https://www.google.com';
     }
   };
 
-  // ✅ Gestion de l'abonnement
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
@@ -212,8 +240,6 @@ export const Home: React.FC = () => {
       setSubscribing(false);
     }
   };
-
-  const latestArticles = filteredArticles.slice(0, 3);
 
   return (
     <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900">
@@ -413,7 +439,12 @@ export const Home: React.FC = () => {
               >
                 <div className="relative h-32 overflow-hidden border-b border-gray-100 dark:border-gray-800">
                   {article.imageUrl ? (
-                    <img src={article.imageUrl} alt={article.title} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700 ease-in-out group-hover:scale-105" />
+                    <img 
+                      src={article.imageUrl} 
+                      alt={article.title} 
+                      loading="lazy"
+                      className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700 ease-in-out group-hover:scale-105" 
+                    />
                   ) : (
                     <div className="w-full h-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-400 text-xs">Pas d'image</div>
                   )}

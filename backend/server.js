@@ -21,7 +21,10 @@ const fs = require('fs');
 const multer = require('multer');
 const { protect, admin } = require('./middleware/auth');
 const cron = require('node-cron');
-const cookieParser = require('cookie-parser'); // AJOUT pour lire les cookies
+const cookieParser = require('cookie-parser');
+const compression = require('compression');
+// ✅ AJOUT DU CACHE
+const { cacheMiddleware, clearCache } = require('./middleware/cache');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -29,13 +32,16 @@ const PORT = process.env.PORT || 5000;
 // ===========================================
 // MIDDLEWARE
 // ===========================================
+// ✅ Compression gzip
+app.use(compression());
+
 app.use(cors({
   origin: ["https://amayanews.com", "https://www.amayanews.com", "http://localhost:5173"],
   credentials: true
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser()); // Pour lire les cookies du tracker
+app.use(cookieParser());
 
 // Middleware de logging
 app.use((req, res, next) => {
@@ -49,7 +55,6 @@ app.use((req, res, next) => {
 const visitorTracker = require('./middleware/visitorTracker');
 const visitorRoutes = require('./routes/visitors');
 
-// Appliquer le tracker (après CORS, avant les routes)
 app.use(visitorTracker);
 app.use('/api/visitors', visitorRoutes);
 
@@ -127,7 +132,7 @@ const articleRoutes = require('./routes/articles');
 const authRoutes = require('./routes/auth');  
 const subscriberRoutes = require('./routes/subscribers');
 
-// Route de test
+// Route de test (sans cache)
 app.get('/api/test', (req, res) => {
     res.json({ 
         success: true,
@@ -137,7 +142,7 @@ app.get('/api/test', (req, res) => {
     });
 });
 
-// Route pour vérifier la DB
+// Route pour vérifier la DB (sans cache)
 app.get('/api/db-status', (req, res) => {
     const state = mongoose.connection.readyState;
     const states = {
@@ -153,10 +158,33 @@ app.get('/api/db-status', (req, res) => {
     });
 });
 
-// Routes API principales
-app.use('/api/articles', articleRoutes);
+// ===========================================
+// ✅ ROUTES API PRINCIPALES AVEC CACHE
+// ===========================================
+
+// ✅ Cache de 5 minutes pour les articles
+app.use('/api/articles', cacheMiddleware(300), articleRoutes);
+
+// ✅ Cache de 1 minute pour les abonnés
+app.use('/api/subscribers', cacheMiddleware(60), subscriberRoutes);
+
+// ✅ Cache de 5 minutes pour les visiteurs
+app.use('/api/visitors', cacheMiddleware(300), visitorRoutes);
+
+// ⚠️ Pas de cache pour l'authentification
 app.use('/api/auth', authRoutes);
-app.use('/api/subscribers', subscriberRoutes);
+
+// ===========================================
+// ROUTE POUR VIDER LE CACHE (ADMIN UNIQUEMENT)
+// ===========================================
+app.post('/api/admin/clear-cache', protect, admin, (req, res) => {
+    const { pattern } = req.body;
+    clearCache(pattern);
+    res.json({ 
+        success: true, 
+        message: `Cache vidé${pattern ? ` pour le pattern: ${pattern}` : ''}` 
+    });
+});
 
 // ===========================================
 // ROUTE POUR LANCER LE SCRAPING
@@ -291,11 +319,11 @@ app.listen(PORT, () => {
     console.log(`📝 Routes disponibles:`);
     console.log(`   - GET  /api/test`);
     console.log(`   - GET  /api/db-status`);
-    console.log(`   - GET  /api/articles`);
-    console.log(`   - GET  /api/articles/pending`);
-    console.log(`   - GET  /api/articles/scheduled`);
-    console.log(`   - GET  /api/articles/stats`);
-    console.log(`   - GET  /api/articles/:id`);
+    console.log(`   - GET  /api/articles (cache 5min)`);
+    console.log(`   - GET  /api/articles/pending (cache 5min)`);
+    console.log(`   - GET  /api/articles/scheduled (cache 5min)`);
+    console.log(`   - GET  /api/articles/stats (cache 5min)`);
+    console.log(`   - GET  /api/articles/:id (cache 5min)`);
     console.log(`   - PUT  /api/articles/:id`);
     console.log(`   - PATCH /api/articles/:id/status`);
     console.log(`   - DELETE /api/articles/:id`);
@@ -306,5 +334,6 @@ app.listen(PORT, () => {
     console.log(`   - POST /api/auth/register`);
     console.log(`   - POST /api/auth/login`);
     console.log(`   - GET  /api/auth/profile`);
-    console.log(`   - GET  /api/visitors/stats`);
+    console.log(`   - GET  /api/visitors/stats (cache 5min)`);
+    console.log(`   - POST /api/admin/clear-cache (admin)`);
 });

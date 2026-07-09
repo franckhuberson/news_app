@@ -88,9 +88,11 @@ HEADERS_LIST = [
     {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
 ]
 
-# ✅ 30 SITES SCRAPPABLES
+# ✅ 50 SITES SCRAPPABLES
 SITES = [
-    # Actualités générales (10 sites)
+    # ==========================================
+    # 1. ACTUALITÉS GÉNÉRALES (10 sites)
+    # ==========================================
     "https://www.abidjan.net/",
     "https://www.fratmat.info/",
     "https://www.linfodrome.com/",
@@ -102,37 +104,77 @@ SITES = [
     "https://www.france24.com/fr/afrique/",
     "https://www.afrik.com/",
     
-    # Emploi & Concours (5 sites)
+    # ==========================================
+    # 2. EMPLOI & CONCOURS (5 sites)
+    # ==========================================
     "https://emploi.educarriere.ci/emploi-accueil",
     "https://www.rmo-jobcenter.com/fr/cote-d-ivoire/offres-emploi.html",
     "https://agenceemploijeunes.ci/",
     "https://infoconcoursci.com/",
     "https://gucaci.ciconcours.com/",
     
-    # Économie (3 sites)
+    # ==========================================
+    # 3. ÉCONOMIE & FINANCES (5 sites)
+    # ==========================================
     "https://www.eco.ci/",
     "https://www.agenceecofin.com/",
     "https://www.africanewshub.com/category/economy",
+    "https://www.lesafriques.com/",                    # ✅ NOUVEAU
+    "https://www.financialafrik.com/",                 # ✅ NOUVEAU
     
-    # Sports (3 sites)
+    # ==========================================
+    # 4. SPORTS (5 sites)
+    # ==========================================
     "https://www.sport-ivoire.ci/",
     "https://www.africatopsports.com/",
     "https://www.lequipe.fr/",
+    "https://www.sportnewsafrica.com/",                # ✅ NOUVEAU
+    "https://www.rfi.fr/fr/sports/",                   # ✅ NOUVEAU
     
-    # Tech & Innovation (3 sites)
+    # ==========================================
+    # 5. TECH & INNOVATION (5 sites)
+    # ==========================================
     "https://www.tech-news.ci/",
     "https://www.africatech.com/",
     "https://www.camer.be/",
+    "https://techabidjan.com/",                        # ✅ NOUVEAU
+    "https://www.digitalcongo.net/",                   # ✅ NOUVEAU
     
-    # Culture (2 sites)
+    # ==========================================
+    # 6. CULTURE & SOCIÉTÉ (5 sites)
+    # ==========================================
     "https://www.musicinafrica.net/",
     "https://www.culturebene.com/",
+    "https://www.ivoiresoir.net/",                     # ✅ NOUVEAU
+    "https://www.africultures.com/",                   # ✅ NOUVEAU
+    "https://www.clubdjembe.com/",                     # ✅ NOUVEAU
     
-    # Institutions & Développement (4 sites)
+    # ==========================================
+    # 7. POLITIQUE & INSTITUTIONS (5 sites)
+    # ==========================================
     "https://www.afro.who.int/fr",
     "https://www.un.org/africarenewal/fr",
     "https://www.banquemondiale.org/fr/region/afrique",
-    "https://www.afdb.org/fr"
+    "https://www.afdb.org/fr",
+    "https://www.lepoint.fr/afrique/",                 # ✅ NOUVEAU
+    
+    # ==========================================
+    # 8. MÉDIAS LOCAUX (5 sites)
+    # ==========================================
+    "https://www.abenationale.com/",                   # ✅ NOUVEAU
+    "https://www.lemessager.net/",                     # ✅ NOUVEAU
+    "https://www.lanation.ci/",                        # ✅ NOUVEAU
+    "https://www.lesoir.ci/",                          # ✅ NOUVEAU
+    "https://www.civinfo.com/",                        # ✅ NOUVEAU
+    
+    # ==========================================
+    # 9. ACTUALITÉS AFRICAINES (5 sites)
+    # ==========================================
+    "https://www.africa.com/",                         # ✅ NOUVEAU
+    "https://www.africafrique.com/",                   # ✅ NOUVEAU
+    "https://www.afrique-sur-seine.fr/",               # ✅ NOUVEAU
+    "https://www.africanews.com/fr/",                  # ✅ NOUVEAU
+    "https://www.afriquepresse.com/",                  # ✅ NOUVEAU
 ]
 
 # Configuration des timeouts (augmentés)
