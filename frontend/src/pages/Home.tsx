@@ -82,7 +82,7 @@ export const Home: React.FC = () => {
         }
         
         // ✅ Charger depuis l'API avec limite
-        const response = await api.get('/articles?status=published&limit=50');
+        const response = await api.get('/articles?status=published&limit=9999');
         let articlesData = response.data.data || [];
         
         const sortedArticles = [...articlesData].sort((a, b) => {

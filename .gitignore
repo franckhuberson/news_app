@@ -5,3 +5,6 @@ venv/
 .env
 *.log
 .git/
+*.tar.gz
+amayanews_latest.tar.gz
+amayanews_backup.tar.gz

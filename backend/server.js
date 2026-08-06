@@ -197,7 +197,7 @@ app.post('/api/scrape', (req, res) => {
   const { spawn } = require('child_process');
   const path = require('path');
   const scraperPath = path.join(__dirname, 'scraper', 'scraper.py');
-  const pythonExe = './scraper/venv/Scripts/python.exe';
+  const pythonExe = './scraper/venv/bin/python3';
   
   console.log('📁 Script:', scraperPath);
   console.log('🐍 Python:', pythonExe);
@@ -258,7 +258,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ 
   storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 10 * 1024 * 1024 }, // ⬅️ Augmenté à 10MB
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|gif|webp/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
@@ -266,24 +266,33 @@ const upload = multer({
     if (mimetype && extname) {
       return cb(null, true);
     } else {
-      cb(new Error('Seules les images sont autorisées'));
+      cb(new Error('Seules les images sont autorisées (JPG, PNG, GIF, WebP)'));
     }
   }
 });
 
 app.post('/api/upload', protect, upload.single('image'), (req, res) => {
   try {
+    console.log('📤 Upload reçu');
+    
     if (!req.file) {
+      console.log('❌ Aucun fichier');
       return res.status(400).json({ success: false, message: 'Aucune image reçue' });
     }
+
+    console.log('📁 Fichier:', req.file.filename);
+    console.log('📏 Taille:', req.file.size);
+    console.log('🖼️ Type:', req.file.mimetype);
     
-    const imageUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+    const imageUrl = `https://amayanews.com/uploads/${req.file.filename}`;
+    console.log('✅ URL générée:', imageUrl);
+    
     res.json({
       success: true,
       data: { url: imageUrl, filename: req.file.filename }
     });
   } catch (error) {
-    console.error('Erreur upload:', error);
+    console.error('❌ Erreur upload:', error);
     res.status(500).json({ success: false, message: 'Erreur upload' });
   }
 });
@@ -336,4 +345,14 @@ app.listen(PORT, () => {
     console.log(`   - GET  /api/auth/profile`);
     console.log(`   - GET  /api/visitors/stats (cache 5min)`);
     console.log(`   - POST /api/admin/clear-cache (admin)`);
+});
+
+// ===========================================
+// DÉSACTIVER LE CACHE POUR LES REQUÊTES API
+// ===========================================
+app.use('/api', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
 });
